@@ -1,0 +1,65 @@
+version: 2
+
+models:
+  - name: clean_events
+    description: Every event of every game, deduplicated, with the params we use as columns.
+    columns:
+      - name: game_id
+        data_tests: [not_null]
+      - name: event_date
+        data_tests: [not_null]
+      - name: player_id
+        data_tests: [not_null]
+      - name: event_key
+        data_tests: [not_null]
+
+  - name: player_day
+    description: One row per game, player and game-local day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, event_date, player_id]
+    columns:
+      - name: install_date
+        data_tests: [not_null]
+      - name: days_since_install
+        data_tests:
+          - not_negative
+
+  - name: dim_games
+    description: Games registry from dbt_project.yml.
+    columns:
+      - name: game_id
+        data_tests: [unique, not_null]
+
+  - name: kpi_daily
+    description: Additive daily totals per game, date, platform, country.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, event_date, platform, country]
+
+  - name: kpi_active_users
+    description: DAU, WAU and MAU per game, date, platform.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, event_date, platform]
+
+  - name: kpi_cohort
+    description: Install cohorts by day since install (retention and LTV).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, install_date, platform, country, day_n]
+
+  - name: kpi_levels
+    description: Level funnel and difficulty per game, date, platform, level.
+  - name: kpi_tutorial
+    description: Tutorial funnel by install cohort.
+  - name: kpi_churn_levels
+    description: Last level reached by players inactive for 3+ days.
+  - name: kpi_economy
+    description: Currency sources and sinks.
+  - name: kpi_data_health
+    description: Events seen per game in the last 7 days, for the integration checklist.

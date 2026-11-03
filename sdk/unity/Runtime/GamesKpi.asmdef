@@ -1,0 +1,11 @@
+{
+  "name": "GamesKpi",
+  "rootNamespace": "GamesKpi",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

@@ -1,0 +1,35 @@
+-- Additive daily totals per game, date, platform and country. The API sums these over any
+-- filter and divides (for example ARPDAU = (ad + IAP net revenue) / DAU).
+select
+  game_id,
+  event_date,
+  coalesce(platform, 'unknown') as platform,
+  coalesce(country, 'unknown') as country,
+  count(*) as dau,
+  countif(days_since_install = 0) as new_players,
+  sum(sessions) as sessions,
+  sum(playtime_sec) as playtime_sec,
+  sum(level_starts) as level_starts,
+  sum(level_completes) as level_completes,
+  sum(level_fails) as level_fails,
+  sum(ad_impressions) as ad_impressions,
+  sum(rewarded_impressions) as rewarded_impressions,
+  sum(interstitial_impressions) as interstitial_impressions,
+  sum(banner_impressions) as banner_impressions,
+  countif(rewarded_impressions > 0) as rewarded_viewers,
+  sum(ad_revenue_usd) as ad_revenue_usd,
+  sum(rewarded_revenue_usd) as rewarded_revenue_usd,
+  sum(interstitial_revenue_usd) as interstitial_revenue_usd,
+  sum(banner_revenue_usd) as banner_revenue_usd,
+  sum(ad_offers_shown) as ad_offers_shown,
+  sum(ad_offers_accepted) as ad_offers_accepted,
+  sum(purchases) as purchases,
+  countif(purchases > 0) as payers,
+  sum(iap_revenue_gross_usd) as iap_revenue_gross_usd,
+  sum(iap_revenue_net_usd) as iap_revenue_net_usd,
+  countif(store_views > 0) as store_viewers,
+  countif(store_views > 0 and purchases > 0) as store_viewer_payers,
+  countif(blocker_hits > 0) as blocked_players,
+  sum(blocker_hits) as blocker_hits
+from {{ ref('player_day') }}
+group by 1, 2, 3, 4

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.log
+warehouse/target/
+warehouse/logs/
+warehouse/dbt_packages/
+sdk/flutter/.dart_tool/
+sdk/flutter/pubspec.lock
+sdk/flutter/build/
+__pycache__/
+.venv/

@@ -28,7 +28,7 @@ Do not send any event before the player's consent is known if the game asks for 
 `Packages/manifest.json`:
 
 ```json
-"com.gameskpi.analytics": "https://github.com/<owner>/games-kpi-platform.git?path=sdk/unity#v0.1.0"
+"com.gameskpi.analytics": "https://github.com/michaelasaraf/games-kpi-platform.git?path=sdk/unity#v0.1.0"
 ```
 
 **Flutter** (with `firebase_core` and `firebase_analytics` already in the app). In `pubspec.yaml`:
@@ -37,7 +37,7 @@ Do not send any event before the player's consent is known if the game asks for 
 dependencies:
   games_kpi:
     git:
-      url: https://github.com/<owner>/games-kpi-platform.git
+      url: https://github.com/michaelasaraf/games-kpi-platform.git
       path: sdk/flutter
       ref: v0.1.0
 ```

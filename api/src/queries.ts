@@ -18,9 +18,12 @@ export interface Range {
   to: string;
   /** 'all', 'android' or 'ios'. */
   platform: string;
+  /** 'all' or a UA source such as 'organic', 'meta', 'google_ads'. */
+  source: string;
 }
 
-const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform)`;
+/** Platform and UA source filters; every KPI table has both columns. */
+const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform) AND (@source = 'all' OR ua_source = @source)`;
 
 const SUM_TOTALS = `
   SUM(dau) AS dau, SUM(new_players) AS new_players, SUM(sessions) AS sessions,
@@ -62,7 +65,7 @@ export class KpiService {
   }
 
   private params(gameId: string, r: Range) {
-    return { game: gameId, from: r.from, to: r.to, platform: r.platform };
+    return { game: gameId, from: r.from, to: r.to, platform: r.platform, source: r.source };
   }
 
   private days(r: Range) {
@@ -254,6 +257,61 @@ export class KpiService {
       checklist: integrationChecklist(rows),
       events: rows,
     };
+  }
+
+  /** UA sources seen in the games the user may see, for the filter. */
+  async uaSources(gameIds: string[] | '*') {
+    const rows = await this.wh.query<{ game_id: string; ua_source: string }>(
+      `SELECT DISTINCT game_id, ua_source FROM {{dataset}}.kpi_daily`,
+    );
+    const visible = rows.filter((r) => gameIds === '*' || gameIds.includes(r.game_id));
+    return [...new Set(visible.map((r) => r.ua_source))].sort();
+  }
+
+  /**
+   * KPIs per UA source for one game: installs, retention, LTV and ARPDAU side by side.
+   * Uses the platform filter but not the source filter, so every source shows.
+   */
+  async sources(gameId: string, r: Range) {
+    const all = { ...r, source: 'all' };
+    const [totals, cohorts] = await Promise.all([
+      this.wh.query<Record<string, unknown> & { ua_source: string }>(
+        `SELECT ua_source, ${SUM_TOTALS} FROM {{dataset}}.kpi_daily
+         WHERE game_id = @game AND event_date BETWEEN DATE(@from) AND DATE(@to) AND ${PLATFORM_FILTER}
+         GROUP BY ua_source`,
+        this.params(gameId, all),
+      ),
+      this.wh.query<CohortRow & { ua_source: string }>(
+        `SELECT ua_source, install_date, day_n, SUM(active_players) AS active_players,
+                SUM(ad_revenue_usd) AS ad_revenue_usd, SUM(iap_revenue_net_usd) AS iap_revenue_net_usd
+         FROM {{dataset}}.kpi_cohort
+         WHERE game_id = @game AND install_date BETWEEN DATE(@from) AND DATE(@to) AND day_n <= 7 AND ${PLATFORM_FILTER}
+         GROUP BY ua_source, install_date, day_n`,
+        this.params(gameId, all),
+      ),
+    ]);
+    const last = lastCompleteDate(this.now());
+    const installsAll = totals.reduce((sum, t) => sum + Number(t.new_players ?? 0), 0);
+    const rows = totals.map((t) => {
+      const mine = cohorts.filter((c) => c.ua_source === t.ua_source);
+      const day = (d: number) => {
+        const b = blendedDay(mine, last, d);
+        return { ...b, reliable: b.players >= MIN_RELIABLE_COHORT };
+      };
+      const money = engagementAndMoney(toTotals(t, this.days(r)));
+      return {
+        ua_source: t.ua_source,
+        installs: money.installs,
+        install_share: installsAll > 0 ? money.installs / installsAll : null,
+        avg_dau: money.avg_dau,
+        revenue_usd: money.revenue_usd,
+        arpdau: money.arpdau,
+        d1: day(1),
+        d7: day(7),
+        ltv_d7: day(7),
+      };
+    });
+    return rows.sort((a, b) => b.installs - a.installs);
   }
 
   /** One row per game the user may see, for the portfolio page. */

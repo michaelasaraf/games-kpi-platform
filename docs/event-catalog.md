@@ -14,6 +14,23 @@ Each event also carries `kpi_event_id`, `kpi_seq` and `kpi_sdk`, added by the wr
 | `in_app_purchase` | IAP revenue when the game's iap_source is firebase_auto |
 | `app_store_refund` | Refunds (iOS) |
 
+## Attribution (UA source)
+
+### `install_attribution`
+
+Where the player came from (UA source). On Android the wrapper sends this by itself from the Google Play install referrer, once per install. Games with an attribution SDK (Tenjin, AppsFlyer, Adjust) also call it from that SDK's attribution callback; the dashboard prefers the SDK's answer, then the referrer, then Firebase's own install source.
+
+Unity: `Kpi.InstallAttribution(...)` · Flutter: `KpiEvents.installAttribution(...)`
+
+| Param | Type | Required | Unity / Dart argument | Description |
+| --- | --- | --- | --- | --- |
+| `attribution_provider` | string | yes | `attributionProvider` | Who decided the source: tenjin, appsflyer, adjust, or play_referrer (sent by the wrapper) |
+| `media_source` | string | yes | `mediaSource` | Network as the provider names it, e.g. facebook, googleadwords_int, organic |
+| `campaign` | string | no | `campaign` | Campaign name, if known |
+| `adset` | string | no | `adset` | Ad set or ad group, if known |
+| `is_organic` | bool | no | `isOrganic` | true when the provider says the install was organic |
+| `referrer` | string | no | `referrer` | Raw install referrer (play_referrer only), cut to 100 characters |
+
 ## Progression
 
 ### `tutorial_begin`

@@ -8,6 +8,18 @@ part of '../games_kpi.dart';
 abstract final class KpiEvents {
   static const int catalogVersion = 1;
 
+  /// Where the player came from (UA source). On Android the wrapper sends this by itself from the Google Play install referrer, once per install. Games with an attribution SDK (Tenjin, AppsFlyer, Adjust) also call it from that SDK's attribution callback; the dashboard prefers the SDK's answer, then the referrer, then Firebase's own install source.
+  static Future<void> installAttribution({required String attributionProvider, required String mediaSource, String? campaign, String? adset, bool? isOrganic, String? referrer}) {
+    return _log('install_attribution', <String, Object>{
+      'attribution_provider': _clip(attributionProvider),
+      'media_source': _clip(mediaSource),
+      if (campaign != null) 'campaign': _clip(campaign),
+      if (adset != null) 'adset': _clip(adset),
+      if (isOrganic != null) 'is_organic': (isOrganic ? 1 : 0),
+      if (referrer != null) 'referrer': _clip(referrer),
+    });
+  }
+
   /// The tutorial starts. Call once per player.
   static Future<void> tutorialBegin() => _log('tutorial_begin', const <String, Object>{});
 

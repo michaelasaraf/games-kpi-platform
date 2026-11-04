@@ -230,7 +230,7 @@ export function levelFunnel(rows: LevelRow[]) {
 }
 
 /** Event groups the integration checklist checks, and which events satisfy each. */
-export const CHECKLIST: { group: string; label: string; anyOf: string[][] }[] = [
+export const CHECKLIST: { group: string; label: string; anyOf: string[][]; ifMissing?: string }[] = [
   { group: 'lifecycle', label: 'Installs, sessions and playtime (automatic)', anyOf: [['first_open', 'session_start', 'user_engagement']] },
   { group: 'tutorial', label: 'Tutorial funnel', anyOf: [['tutorial_begin', 'tutorial_step', 'tutorial_complete']] },
   { group: 'progression', label: 'Level start and end', anyOf: [['level_start', 'level_end']] },
@@ -239,6 +239,12 @@ export const CHECKLIST: { group: string; label: string; anyOf: string[][] }[] = 
   { group: 'iap', label: 'Store views and purchases', anyOf: [['store_view', 'iap_purchase'], ['store_view', 'in_app_purchase']] },
   { group: 'economy', label: 'Currency earned and spent', anyOf: [['earn_virtual_currency', 'spend_virtual_currency']] },
   { group: 'blockers', label: 'Blockers (out of lives, coins)', anyOf: [['blocker_hit']] },
+  {
+    group: 'attribution',
+    label: 'UA source (Play referrer or attribution SDK)',
+    anyOf: [['install_attribution']],
+    ifMissing: 'No install_attribution yet: players are split by Firebase\'s install source only, which cannot see Meta. Check the game runs the current wrapper on Android, and forwards Tenjin attribution where the game has Tenjin.',
+  },
 ];
 
 export interface HealthRow {
@@ -277,10 +283,12 @@ export function integrationChecklist(rows: HealthRow[]) {
       if (n(r.missing_currency_name) > 0) problems.push(`${r.missing_currency_name} ${e} events without virtual_currency_name`);
     }
     const missing = satisfied ? [] : (item.anyOf[0] ?? []).filter((e) => !(n(seen.get(e)?.events_7d) > 0));
+    if (!satisfied && item.ifMissing) problems.push(item.ifMissing);
     return {
       group: item.group,
       label: item.label,
-      status: !satisfied ? 'missing' : problems.length ? 'warning' : 'ok',
+      // An item with an ifMissing note is optional: it warns instead of failing.
+      status: !satisfied ? (item.ifMissing ? 'warning' : 'missing') : problems.length ? 'warning' : 'ok',
       missing_events: missing,
       problems,
       events_7d: relevant.reduce((s, e) => s + n(seen.get(e)?.events_7d), 0),

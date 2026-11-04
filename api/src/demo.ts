@@ -40,6 +40,10 @@ const GAMES: DemoGame[] = [
   { game_id: 'demo_tycoon', name: 'Demo Tycoon', engine: 'flutter', platforms: ['android'], installsPerDay: 140, d1: 0.31, decay: 0.62, arpdau: 0.05, levels: 30 },
 ];
 const COUNTRIES: [string, number][] = [['United States', 0.35], ['Germany', 0.2], ['Brazil', 0.25], ['India', 0.2]];
+/** UA source, share of installs, retention and revenue multipliers. */
+const SOURCES: [string, number, number, number][] = [['organic', 0.5, 1.1, 0.85], ['meta', 0.3, 0.88, 1.25], ['google_ads', 0.2, 1.0, 1.1]];
+/** Days since install the demo fills in (the dashboard reads 0..30, 60 and 90). */
+const COHORT_DAYS = [...Array.from({ length: 31 }, (_, i) => i), 60, 90];
 
 function generate() {
   const days = dayList(120);
@@ -55,17 +59,18 @@ function generate() {
 
     for (const platform of g.platforms) {
       const pShare = platform === 'ios' ? 0.3 : g.platforms.length > 1 ? 0.7 : 1;
-      for (const [country, cShare] of COUNTRIES) {
-        const installs = days.map(() => Math.round(g.installsPerDay * pShare * cShare * (0.8 + rand() * 0.4)));
+      for (const [country, cShare] of COUNTRIES) for (const [ua_source, sShare, rMult, vMult] of SOURCES) {
+        const installs = days.map(() => Math.round(g.installsPerDay * pShare * cShare * sShare * (0.8 + rand() * 0.4)));
         const activeByDay = days.map(() => 0);
         days.forEach((installDate, i) => {
           for (let n = 0; i + n < days.length && n <= 90; n++) {
-            const active = Math.round(installs[i]! * retention(n) * (0.9 + rand() * 0.2));
+            const active = Math.round(installs[i]! * (n === 0 ? 1 : retention(n) * rMult) * (0.9 + rand() * 0.2));
             if (active === 0) continue;
             activeByDay[i + n]! += active;
-            const rev = active * g.arpdau * (0.7 + rand() * 0.6) * (country === 'United States' ? 1.8 : 0.7);
+            if (!COHORT_DAYS.includes(n)) continue;
+            const rev = active * g.arpdau * vMult * (0.7 + rand() * 0.6) * (country === 'United States' ? 1.8 : 0.7);
             tables.kpi_cohort!.push({
-              game_id: g.game_id, install_date: installDate, platform, country, day_n: n,
+              game_id: g.game_id, install_date: installDate, platform, country, ua_source, day_n: n,
               active_players: active, ad_revenue_usd: rev * 0.65, iap_revenue_net_usd: rev * 0.35,
               payers: Math.round(active * 0.015), playtime_sec: active * 1100, cohort_size: installs[i],
             });
@@ -74,11 +79,11 @@ function generate() {
         days.forEach((date, i) => {
           const dau = activeByDay[i]!;
           const imps = dau * 6.5;
-          const adRev = dau * g.arpdau * 0.65 * (0.85 + rand() * 0.3) * (country === 'United States' ? 1.8 : 0.7);
+          const adRev = dau * g.arpdau * vMult * 0.65 * (0.85 + rand() * 0.3) * (country === 'United States' ? 1.8 : 0.7);
           const payers = Math.round(dau * 0.012 * (0.7 + rand() * 0.6));
           const storeViewers = Math.round(dau * 0.08);
           tables.kpi_daily!.push({
-            game_id: g.game_id, event_date: date, platform, country, dau, new_players: installs[i],
+            game_id: g.game_id, event_date: date, platform, country, ua_source, dau, new_players: installs[i],
             sessions: Math.round(dau * (3.2 + rand())), playtime_sec: Math.round(dau * 60 * (16 + rand() * 6)),
             level_starts: Math.round(dau * 9), level_completes: Math.round(dau * 6.5), level_fails: Math.round(dau * 2.5),
             ad_impressions: Math.round(imps), rewarded_impressions: Math.round(imps * 0.3),
@@ -92,24 +97,24 @@ function generate() {
             blocked_players: Math.round(dau * 0.2), blocker_hits: Math.round(dau * 0.35),
           });
           if (country === COUNTRIES[0]![0]) {
-            // Active users are per platform, summed over countries.
+            // Active users are per platform and UA source, summed over countries.
             const allCountries = dau / cShare;
             tables.kpi_active_users!.push({
-              game_id: g.game_id, event_date: date, platform,
+              game_id: g.game_id, event_date: date, platform, ua_source,
               dau: Math.round(allCountries), wau: Math.round(allCountries * 2.3), mau: Math.round(allCountries * 4.6),
             });
           }
         });
       }
 
-      days.forEach((date) => {
-        let players = Math.round(g.installsPerDay * pShare * 3.5);
+      for (const [ua_source, sShare] of SOURCES) days.forEach((date) => {
+        let players = Math.round(g.installsPerDay * pShare * sShare * 3.5);
         for (let lvl = 1; lvl <= g.levels; lvl++) {
           const hard = lvl % 10 === 7;
           const win = hard ? 0.38 : 0.62 + rand() * 0.25;
           const starts = Math.round(players / win);
           tables.kpi_levels!.push({
-            game_id: g.game_id, event_date: date, platform, level_number: lvl, level_name: `level_${lvl}`,
+            game_id: g.game_id, event_date: date, platform, ua_source, level_number: lvl, level_name: `level_${lvl}`,
             starts, completes: Math.round(starts * win), fails: Math.round(starts * (1 - win)),
             players_started: players, players_completed: Math.round(players * 0.92),
             complete_duration_sec: Math.round(starts * win * (60 + lvl * 4)), completes_with_duration: Math.round(starts * win),
@@ -118,28 +123,28 @@ function generate() {
           players = Math.round(players * (hard ? 0.82 : 0.96));
         }
         for (const [currency, scale] of [['coins', 120], ['gems', 3]] as const) {
-          const dauish = g.installsPerDay * pShare * 3;
+          const dauish = g.installsPerDay * pShare * sShare * 3;
           const flows: [string, string, number][] = [
             ['source', 'level_reward', 0.55], ['source', 'daily_bonus', 0.2], ['source', 'rewarded_ad', 0.15], ['source', 'purchase', 0.1],
             ['sink', 'booster', 0.4], ['sink', 'continue', 0.3], ['sink', 'unlock', 0.15],
           ];
           for (const [flow, reason, share] of flows) {
             tables.kpi_economy!.push({
-              game_id: g.game_id, event_date: date, platform, currency_name: currency, flow, reason,
+              game_id: g.game_id, event_date: date, platform, ua_source, currency_name: currency, flow, reason,
               events: Math.round(dauish * share * 3), players: Math.round(dauish * share), amount: Math.round(dauish * scale * share * (0.9 + rand() * 0.2)),
             });
           }
         }
       });
 
-      days.forEach((installDate) => {
-        const size = Math.round(g.installsPerDay * pShare);
+      for (const [ua_source, sShare] of SOURCES) days.forEach((installDate) => {
+        const size = Math.round(g.installsPerDay * pShare * sShare);
         [[0, 'Tutorial started', 0.97], [1, 'tap_to_match', 0.93], [2, 'first_combo', 0.88], [3, 'use_booster', 0.84], [9999, 'Tutorial completed', 0.8]].forEach(([step, name, share]) =>
-          tables.kpi_tutorial!.push({ game_id: g.game_id, install_date: installDate, platform, step, step_name: name, players: Math.round(size * (share as number)) }),
+          tables.kpi_tutorial!.push({ game_id: g.game_id, install_date: installDate, platform, ua_source, step, step_name: name, players: Math.round(size * (share as number)) }),
         );
         for (let lvl = 0; lvl <= g.levels; lvl++) {
           const churned = Math.round(size * 0.6 * (lvl % 10 === 7 ? 0.08 : 0.02) * (lvl === 0 ? 3 : 1));
-          tables.kpi_churn_levels!.push({ game_id: g.game_id, install_date: installDate, platform, last_level_number: lvl, churned_players: churned });
+          tables.kpi_churn_levels!.push({ game_id: g.game_id, install_date: installDate, platform, ua_source, last_level_number: lvl, churned_players: churned });
         }
       });
     }
@@ -153,6 +158,7 @@ function generate() {
       ['ad_impression', 60000, [sdk], 0], ['ad_offer_shown', 25000, [sdk], 0], ['ad_offer_accepted', 9000, [sdk], 0],
       ['store_view', 900, [sdk], 0], ['iap_purchase', 60, [sdk], 0],
       ['earn_virtual_currency', 70000, [sdk], 0], ['spend_virtual_currency', 30000, [sdk], 0],
+      ['install_attribution', 1700, [sdk], 0],
     ];
     for (const [event_name, events_7d, sources, missingLevel] of health) {
       if (g.engine === 'flutter' && event_name === 'iap_purchase') continue; // demo: one game not done yet

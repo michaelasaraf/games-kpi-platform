@@ -74,4 +74,36 @@ void main() {
     expect(fake.collectionEnabled, isFalse);
     expect(fake.adStorage, isFalse);
   });
+
+  test('parses Play install referrers', () {
+    final meta = parseInstallReferrer('utm_source=apps.facebook.com&utm_campaign=fb4a&utm_content=%7B%22app%22%3A1%7D');
+    expect(meta.mediaSource, 'apps.facebook.com');
+    expect(meta.isOrganic, isFalse);
+    expect(meta.campaign, 'fb4a');
+    expect(parseInstallReferrer('gclid=Cj0KCQ&utm_source=google&utm_medium=cpc').mediaSource, 'google_ads');
+    expect(parseInstallReferrer('utm_source=google-play&utm_medium=organic').isOrganic, isTrue);
+    expect(parseInstallReferrer('').mediaSource, 'unknown');
+  });
+
+  test('sends the install referrer once per install', () async {
+    SharedPreferences.setMockInitialValues({});
+    final fake = FakeAnalytics();
+    Future<String?> referrer() async => 'utm_source=google-play&utm_medium=organic';
+    await Kpi.init(analytics: fake, installReferrer: referrer);
+    await Kpi.init(analytics: fake, installReferrer: referrer);
+    final sent = fake.logged.where((e) => e.$1 == 'install_attribution').toList();
+    expect(sent, hasLength(1));
+    expect(sent.single.$2['attribution_provider'], 'play_referrer');
+    expect(sent.single.$2['is_organic'], 1);
+  });
+
+  test('waits for consent before sending the referrer', () async {
+    SharedPreferences.setMockInitialValues({});
+    final fake = FakeAnalytics();
+    Future<String?> referrer() async => 'utm_source=apps.facebook.com';
+    await Kpi.init(analytics: fake, analyticsConsent: false, installReferrer: referrer);
+    expect(fake.logged, isEmpty);
+    await Kpi.init(analytics: fake, installReferrer: referrer);
+    expect(fake.logged.single.$1, 'install_attribution');
+  });
 }

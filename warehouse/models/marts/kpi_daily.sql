@@ -1,10 +1,11 @@
--- Additive daily totals per game, date, platform and country. The API sums these over any
--- filter and divides (for example ARPDAU = (ad + IAP net revenue) / DAU).
+-- Additive daily totals per game, date, platform, country and UA source. The API sums these
+-- over any filter and divides (for example ARPDAU = (ad + IAP net revenue) / DAU).
 select
-  game_id,
-  event_date,
-  coalesce(platform, 'unknown') as platform,
-  coalesce(country, 'unknown') as country,
+  pd.game_id,
+  pd.event_date,
+  coalesce(pd.platform, 'unknown') as platform,
+  coalesce(pd.country, 'unknown') as country,
+  coalesce(ua.ua_source, 'unknown') as ua_source,
   count(*) as dau,
   countif(days_since_install = 0) as new_players,
   sum(sessions) as sessions,
@@ -31,5 +32,6 @@ select
   countif(store_views > 0 and purchases > 0) as store_viewer_payers,
   countif(blocker_hits > 0) as blocked_players,
   sum(blocker_hits) as blocker_hits
-from {{ ref('player_day') }}
-group by 1, 2, 3, 4
+from {{ ref('player_day') }} as pd
+left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+group by 1, 2, 3, 4, 5

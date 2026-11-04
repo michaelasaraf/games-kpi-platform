@@ -1,6 +1,7 @@
 import { camel, orderedParams } from './catalog.js';
 
 const GROUP_TITLES = {
+  attribution: 'Attribution (UA source)',
   progression: 'Progression',
   ads: 'Ads',
   iap: 'Store and in-app purchases',

@@ -31,6 +31,7 @@ const rangeQuery = z.object({
   from: isoDate.optional(),
   to: isoDate.optional(),
   platform: z.enum(['all', 'android', 'ios']).default('all'),
+  source: z.string().regex(/^[a-z0-9_]{1,40}$/, 'unknown UA source').default('all'),
 });
 const MAX_RANGE_DAYS = 400;
 
@@ -41,7 +42,7 @@ export function parseRange(query: unknown, now = new Date()): Range {
   const span = daysBetween(from, to);
   if (span < 0) throw new RangeError('from must be on or before to');
   if (span >= MAX_RANGE_DAYS) throw new RangeError(`range is limited to ${MAX_RANGE_DAYS} days`);
-  return { from, to, platform: q.platform };
+  return { from, to, platform: q.platform, source: q.source };
 }
 
 export function buildApp(opts: AppOptions): FastifyInstance {
@@ -78,6 +79,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
     api.get('/games', async (req) => filterGames(req.gameAccess ?? [], await opts.kpis.games()));
 
+    api.get('/ua-sources', async (req) => opts.kpis.uaSources(req.gameAccess ?? []));
+
     api.get('/portfolio', async (req) => opts.kpis.portfolio(req.gameAccess ?? [], parseRange(req.query)));
 
     const perGame: Record<string, (gameId: string, req: FastifyRequest) => Promise<unknown>> = {
@@ -87,6 +90,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       levels: (g, req) => opts.kpis.levels(g, parseRange(req.query)),
       tutorial: (g, req) => opts.kpis.tutorial(g, parseRange(req.query)),
       economy: (g, req) => opts.kpis.economy(g, parseRange(req.query)),
+      sources: (g, req) => opts.kpis.sources(g, parseRange(req.query)),
       platforms: (g) => opts.kpis.platforms(g),
       integration: (g) => opts.kpis.integration(g),
     };

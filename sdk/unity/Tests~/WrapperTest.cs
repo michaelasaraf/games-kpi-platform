@@ -44,6 +44,22 @@ public static class WrapperTest
         Kpi.LevelStart(new string('x', 150), 3);
         Check(((string)P("level_start", "level_name").Value).Length == 100, "strings clipped to 100");
 
+        var meta = Kpi.ParseReferrer("utm_source=apps.facebook.com&utm_campaign=fb4a&utm_content=%7B%22app%22%3A1%7D");
+        Check(meta.MediaSource == "apps.facebook.com" && meta.IsOrganic == false && meta.Campaign == "fb4a", "Meta referrer");
+        var gads = Kpi.ParseReferrer("gclid=Cj0KCQ&utm_source=google&utm_medium=cpc");
+        Check(gads.MediaSource == "google_ads" && gads.IsOrganic == false, "Google Ads click id wins");
+        var organic = Kpi.ParseReferrer("utm_source=google-play&utm_medium=organic");
+        Check(organic.MediaSource == "google-play" && organic.IsOrganic == true, "Play organic");
+        var empty = Kpi.ParseReferrer("");
+        Check(empty.MediaSource == "unknown" && empty.IsOrganic == null, "empty referrer is unknown");
+
+        Kpi.ReportInstallReferrer("utm_source=google-play&utm_medium=organic");
+        Check((string)P("install_attribution", "attribution_provider").Value == "play_referrer", "referrer sent as play_referrer");
+        Check((long)P("install_attribution", "is_organic").Value == 1L, "organic flag sent");
+        int sent = FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution");
+        Kpi.ReportInstallReferrer("utm_source=google-play&utm_medium=organic");
+        Check(FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution") == sent, "referrer sent once per install");
+
         Kpi.SetConsent(analytics: false, ads: false);
         int before = FirebaseAnalytics.Logged.Count;
         Kpi.LevelStart("w1_l02", 2);

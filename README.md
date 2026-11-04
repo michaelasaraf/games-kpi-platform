@@ -11,7 +11,7 @@ Game (Unity / Flutter)
                                          games_kpi dataset (clean + KPI tables)
                                                    │
                         api/ + web/ (Railway)      ▼
-                                         Dashboard: portfolio + per-game KPIs, platform filter
+                                         Dashboard: portfolio + per-game KPIs, platform and UA source filters
 ```
 
 ## Repo layout

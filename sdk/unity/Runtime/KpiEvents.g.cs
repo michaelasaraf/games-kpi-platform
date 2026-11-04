@@ -11,6 +11,25 @@ namespace GamesKpi
     {
         public const int CatalogVersion = 1;
 
+        /// <summary>Where the player came from (UA source). On Android the wrapper sends this by itself from the Google Play install referrer, once per install. Games with an attribution SDK (Tenjin, AppsFlyer, Adjust) also call it from that SDK's attribution callback; the dashboard prefers the SDK's answer, then the referrer, then Firebase's own install source.</summary>
+        /// <param name="attributionProvider">Who decided the source: tenjin, appsflyer, adjust, or play_referrer (sent by the wrapper)</param>
+        /// <param name="mediaSource">Network as the provider names it, e.g. facebook, googleadwords_int, organic</param>
+        /// <param name="campaign">Campaign name, if known</param>
+        /// <param name="adset">Ad set or ad group, if known</param>
+        /// <param name="isOrganic">true when the provider says the install was organic</param>
+        /// <param name="referrer">Raw install referrer (play_referrer only), cut to 100 characters</param>
+        public static void InstallAttribution(string attributionProvider, string mediaSource, string campaign = null, string adset = null, bool? isOrganic = null, string referrer = null)
+        {
+            var p = new List<Parameter>(9);
+            p.Add(new Parameter("attribution_provider", Clip(attributionProvider)));
+            p.Add(new Parameter("media_source", Clip(mediaSource)));
+            if (campaign != null) p.Add(new Parameter("campaign", Clip(campaign)));
+            if (adset != null) p.Add(new Parameter("adset", Clip(adset)));
+            if (isOrganic.HasValue) p.Add(new Parameter("is_organic", isOrganic.Value ? 1L : 0L));
+            if (referrer != null) p.Add(new Parameter("referrer", Clip(referrer)));
+            Log("install_attribution", p);
+        }
+
         /// <summary>The tutorial starts. Call once per player.</summary>
         public static void TutorialBegin()
         {

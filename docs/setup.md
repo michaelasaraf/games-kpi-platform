@@ -24,6 +24,9 @@ In the game's Firebase console: **Project settings > Integrations > BigQuery > L
 
 After a day, the game's project has a dataset named `analytics_<number>`. Note the number.
 
+If the game buys installs on Google Ads, also link the Ads account (**Project settings > Integrations > Google Ads**).
+Firebase then attributes Google Ads installs itself, which fills the UA source for games without Tenjin.
+
 ## 2. Create the platform project and dataset
 
 Pick or create one Google Cloud project for the platform, here called `games-kpi`.

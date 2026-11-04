@@ -36,6 +36,7 @@ namespace GamesKpi
             long.TryParse(PlayerPrefs.GetString(SeqKey, "0"), out _seq);
             _initialized = true;
             SetConsent(analyticsConsent, adsConsent);
+            StartInstallReferrer();
         }
 
         /// <summary>

@@ -34,6 +34,9 @@ with raw as (
     user_pseudo_id,
     user_first_touch_timestamp,
     platform,
+    traffic_source.source as fb_source,
+    traffic_source.medium as fb_medium,
+    traffic_source.name as fb_campaign,
     app_info.version as app_version,
     geo.country as country
   from `{{ g.firebase_project }}.{{ g.analytics_dataset }}.events_*`
@@ -76,11 +79,22 @@ flattened as (
     lower(platform) as platform,
     app_version,
     country,
+    -- Firebase's first-touch acquisition (filled in the daily tables only).
+    nullif(fb_source, '') as fb_source,
+    nullif(fb_medium, '') as fb_medium,
+    nullif(fb_campaign, '') as fb_campaign,
 
     {{ param_int('ga_session_id') }} as session_id,
     {{ param_int('engagement_time_msec') }} as engagement_msec,
     {{ param_str('kpi_sdk') }} as kpi_sdk,
     {{ param_int('kpi_seq') }} as kpi_seq,
+
+    -- attribution (install_attribution)
+    {{ param_str('attribution_provider') }} as attribution_provider,
+    {{ param_str('media_source') }} as attribution_media_source,
+    {{ param_str('campaign') }} as attribution_campaign,
+    {{ param_str('adset') }} as attribution_adset,
+    {{ param_int('is_organic') }} as attribution_is_organic,
 
     -- progression
     {{ param_int('step') }} as tutorial_step,

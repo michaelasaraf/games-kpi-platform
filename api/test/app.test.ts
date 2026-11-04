@@ -52,7 +52,7 @@ describe('access', () => {
 describe('parseRange', () => {
   const now = new Date('2026-11-09T12:00:00Z');
   it('defaults to the 30 days ending yesterday', () => {
-    expect(parseRange({}, now)).toEqual({ from: '2026-10-10', to: '2026-11-08', platform: 'all' });
+    expect(parseRange({}, now)).toEqual({ from: '2026-10-10', to: '2026-11-08', platform: 'all', source: 'all' });
   });
   it('rejects reversed and huge ranges', () => {
     expect(() => parseRange({ from: '2026-11-08', to: '2026-11-01' }, now)).toThrow();
@@ -111,6 +111,37 @@ describe('API', () => {
     expect(wh.calls.every((c) => c.params.game === 'gems_crafter' && c.params.platform === 'android')).toBe(true);
     // Values never go into the SQL text itself.
     expect(wh.calls.some((c) => c.sql.includes('gems_crafter'))).toBe(false);
+  });
+
+  it('passes the UA source filter as a param', async () => {
+    wh.calls = [];
+    const res = await app.inject({
+      url: '/api/games/gems_crafter/summary?source=meta',
+      headers: { authorization: 'Bearer pm@studio.com' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(wh.calls.every((c) => c.params.source === 'meta')).toBe(true);
+    expect(wh.calls.some((c) => c.sql.includes('meta'))).toBe(false);
+  });
+
+  it('rejects UA sources that are not identifiers', async () => {
+    const res = await app.inject({
+      url: "/api/games/gems_crafter/summary?source=x'%20OR%201=1",
+      headers: { authorization: 'Bearer pm@studio.com' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('lists UA sources only from games the user may see', async () => {
+    const sourcesApp = makeApp(new FakeWarehouse({
+      kpi_daily: [
+        { game_id: 'gems_crafter', ua_source: 'organic' },
+        { game_id: 'gems_crafter', ua_source: 'meta' },
+        { game_id: 'storm_bloom', ua_source: 'tiktok' },
+      ],
+    }));
+    const res = await sourcesApp.inject({ url: '/api/ua-sources', headers: { authorization: 'Bearer pm@studio.com' } });
+    expect(res.json()).toEqual(['meta', 'organic']);
   });
 
   it('rejects bad input with 400', async () => {

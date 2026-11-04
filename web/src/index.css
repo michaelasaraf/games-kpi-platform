@@ -130,7 +130,7 @@ table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nu
 th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
 th { color: var(--text-secondary); font-weight: 600; font-size: 12px; }
 th:first-child, td:first-child { text-align: left; }
-tbody tr:hover { background: var(--accent-wash); }
+tbody tr:hover, tbody tr[aria-current='true'] { background: var(--accent-wash); }
 td.heat { color: var(--text-primary); }
 td.empty { color: var(--text-muted); }
 

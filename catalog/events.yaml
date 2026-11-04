@@ -28,6 +28,23 @@ automatic:
     feeds: Refunds (iOS)
 
 events:
+  # --- Attribution -----------------------------------------------------------
+  - name: install_attribution
+    group: attribution
+    method: InstallAttribution
+    description: >-
+      Where the player came from (UA source). On Android the wrapper sends this by itself from
+      the Google Play install referrer, once per install. Games with an attribution SDK (Tenjin,
+      AppsFlyer, Adjust) also call it from that SDK's attribution callback; the dashboard prefers
+      the SDK's answer, then the referrer, then Firebase's own install source.
+    params:
+      - { name: attribution_provider, type: string, required: true, description: "Who decided the source: tenjin, appsflyer, adjust, or play_referrer (sent by the wrapper)" }
+      - { name: media_source, type: string, required: true, description: "Network as the provider names it, e.g. facebook, googleadwords_int, organic" }
+      - { name: campaign, type: string, required: false, description: "Campaign name, if known" }
+      - { name: adset, type: string, required: false, description: "Ad set or ad group, if known" }
+      - { name: is_organic, type: bool, required: false, description: "true when the provider says the install was organic" }
+      - { name: referrer, type: string, required: false, description: "Raw install referrer (play_referrer only), cut to 100 characters" }
+
   # --- Progression -----------------------------------------------------------
   - name: tutorial_begin
     group: progression

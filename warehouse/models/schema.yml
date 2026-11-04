@@ -26,6 +26,16 @@ models:
         data_tests:
           - not_negative
 
+  - name: player_attribution
+    description: One row per game and player with the UA source (attribution SDK, then Play referrer, then Firebase).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, player_id]
+    columns:
+      - name: ua_source
+        data_tests: [not_null]
+
   - name: dim_games
     description: Games registry from dbt_project.yml.
     columns:
@@ -33,25 +43,25 @@ models:
         data_tests: [unique, not_null]
 
   - name: kpi_daily
-    description: Additive daily totals per game, date, platform, country.
+    description: Additive daily totals per game, date, platform, country, UA source.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [game_id, event_date, platform, country]
+            columns: [game_id, event_date, platform, country, ua_source]
 
   - name: kpi_active_users
-    description: DAU, WAU and MAU per game, date, platform.
+    description: DAU, WAU and MAU per game, date, platform, UA source.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [game_id, event_date, platform]
+            columns: [game_id, event_date, platform, ua_source]
 
   - name: kpi_cohort
     description: Install cohorts by day since install (retention and LTV).
     data_tests:
       - unique_combination:
           arguments:
-            columns: [game_id, install_date, platform, country, day_n]
+            columns: [game_id, install_date, platform, country, ua_source, day_n]
 
   - name: kpi_levels
     description: Level funnel and difficulty per game, date, platform, level.

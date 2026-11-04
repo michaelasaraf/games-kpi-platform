@@ -59,8 +59,10 @@ def render_model(path, incremental):
             return r.value
         raise CompilerError("games() did not return")
 
-    for name in ("param_str", "param_int", "param_num", "start_suffix", "start_date_expr"):
-        ctx[name] = getattr(macros, name)
+    # Every other macro in macros/ is exposed by its own name, as dbt does.
+    for name in dir(macros):
+        if not name.startswith("_") and name != "games":
+            ctx[name] = getattr(macros, name)
     ctx["games"] = games
     return env.from_string(path.read_text()).render(**ctx)
 

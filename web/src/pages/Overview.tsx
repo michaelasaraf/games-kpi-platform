@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { DailyRow, Filters, Game, Summary } from '../api';
+import { sourceLabel, type DailyRow, type DayStat, type Filters, type Game, type SourceRow, type Summary } from '../api';
 import { Chart } from '../components/Chart';
 import { Card, Loadable, Tile, useApi, vsTarget } from '../components/ui';
 import { fmt } from '../format';
@@ -8,6 +8,7 @@ import { fmt } from '../format';
 export function Overview({ game, filters }: { game: Game; filters: Filters }) {
   const summary = useApi<Summary>(`/games/${game.game_id}/summary`, filters);
   const daily = useApi<DailyRow[]>(`/games/${game.game_id}/daily`, filters);
+  const sources = useApi<SourceRow[]>(`/games/${game.game_id}/sources`, filters);
 
   return (
     <>
@@ -31,6 +32,9 @@ export function Overview({ game, filters }: { game: Game; filters: Filters }) {
       </Loadable>
       <Loadable state={daily}>
         {(rows) => <DailyCharts rows={rows} />}
+      </Loadable>
+      <Loadable state={sources}>
+        {(rows) => <SourceTable rows={rows} selected={filters.source} />}
       </Loadable>
     </>
   );
@@ -59,6 +63,46 @@ function DailyCharts({ rows }: { rows: DailyRow[] }) {
       <Card title="Installs"><Chart x={x} series={installs} format={fmt.int} /></Card>
       <Card title="ARPDAU by source" sub="Revenue per daily active player, ads and IAP (net of store fee)"><Chart x={x} series={arpdau} format={(v) => fmt.usd(v, 3)} /></Card>
       <Card title="Playtime per DAU"><Chart x={x} series={playtime} format={(v) => fmt.num(v)} /></Card>
+    </div>
+  );
+}
+
+/** Retention or LTV cell: greyed out when the cohorts behind it are too small to trust. */
+function StatCell({ stat, value }: { stat: DayStat; value: string }) {
+  return <td className={stat.reliable === false ? 'empty' : undefined} title={`${fmt.int(stat.players)} installs`}>{value}</td>;
+}
+
+function SourceTable({ rows, selected }: { rows: SourceRow[]; selected: string }) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="card section">
+      <h2>By UA source</h2>
+      <p className="sub">
+        Each player's source comes from the game's attribution SDK (Tenjin) when it has one, then the Google Play
+        install referrer, then Firebase. iOS installs without an attribution SDK show as Unknown. Grey values have
+        fewer than 1,000 installs behind them. Uses the platform filter, not the UA source filter.
+      </p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr><th>UA source</th><th>Installs</th><th>Share</th><th>D1</th><th>D7</th><th>D7 LTV</th><th>ARPDAU</th><th>Revenue</th></tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.ua_source} aria-current={r.ua_source === selected ? 'true' : undefined}>
+                <td>{sourceLabel(r.ua_source)}</td>
+                <td>{fmt.int(r.installs)}</td>
+                <td>{fmt.pct(r.install_share, 0)}</td>
+                <StatCell stat={r.d1} value={fmt.pct(r.d1.retention)} />
+                <StatCell stat={r.d7} value={fmt.pct(r.d7.retention)} />
+                <StatCell stat={r.ltv_d7} value={fmt.usd(r.ltv_d7.ltv, 3)} />
+                <td>{fmt.usd(r.arpdau, 3)}</td>
+                <td>{fmt.usd(r.revenue_usd)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

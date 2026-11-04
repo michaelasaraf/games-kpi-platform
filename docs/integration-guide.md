@@ -17,7 +17,8 @@ The full list of events and params is in the [event catalog](event-catalog.md).
 4. [Forward ad revenue](#4-ad-revenue) from your mediation SDK.
 5. [Send purchases](#5-purchases).
 6. [Send economy events](#6-economy): currency earned and spent, items, blockers.
-7. [Check it in DebugView and on the dashboard](#7-check-your-work).
+7. [UA source](#7-ua-source): automatic on Android; forward Tenjin's attribution if the game has Tenjin.
+8. [Check it in DebugView and on the dashboard](#8-check-your-work).
 8. Tell the platform owner which [revenue sources](#revenue-sources-tell-us-once) the game uses.
 
 Do not send any event before the player's consent is known if the game asks for consent; see [consent](#consent).
@@ -194,14 +195,67 @@ when a paid offer pops up; they show how often players reach the store.
 Keep `source`, `sink` and currency names to a short fixed list per game (for example `level_reward`,
 `daily_bonus`, `rewarded_ad`, `purchase`); the economy page groups by them.
 
-## 7. Check your work
+## 7. UA source
+
+The dashboard can filter and compare players by where they came from (Organic, Meta, Google Ads and so on).
+Each player's source is taken from the first of these that exists:
+
+1. **An attribution SDK (Tenjin).** Most accurate, and the only one that sees iOS and Meta view-through installs.
+2. **The Google Play install referrer.** The wrapper reads it by itself on Android, once per install, and sends
+   `install_attribution` with provider `play_referrer`. It sees Google Ads clicks and Meta click-through installs.
+   Nothing to do here, apart from the ProGuard note below.
+3. **Firebase's own install source.** Sees Google Ads when the Ads account is linked to Firebase.
+
+Players with none of these show as Unknown (most iOS installs in games without Tenjin).
+
+**Games with Tenjin:** forward Tenjin's attribution once it is known. Tenjin's attribution info has to be
+turned on for your Tenjin account, and method names can differ between Tenjin SDK versions, so check them
+against the version you use.
+
+```csharp
+// Unity, after Tenjin's Connect()
+Tenjin.getInstance("<TENJIN_SDK_KEY>").GetAttributionInfo(info =>
+{
+    info.TryGetValue("ad_network", out var network);
+    info.TryGetValue("campaign_name", out var campaign);
+    Kpi.InstallAttribution("tenjin", string.IsNullOrEmpty(network) ? "organic" : network,
+        campaign: campaign, isOrganic: string.IsNullOrEmpty(network) || network == "organic");
+});
+```
+
+```dart
+// Flutter, tenjin_plugin
+final info = await TenjinSDK.instance.getAttributionInfo();
+final network = info?['ad_network'];
+await KpiEvents.installAttribution(
+  attributionProvider: 'tenjin',
+  mediaSource: (network == null || network.isEmpty) ? 'organic' : network,
+  campaign: info?['campaign_name'],
+  isOrganic: network == null || network.isEmpty || network == 'organic');
+```
+
+Calling it on every launch is fine; the dashboard keeps the first report.
+
+**Unity games with minify (ProGuard or R8) on:** add this line to `Assets/Plugins/Android/proguard-user.txt`,
+so the referrer library is not stripped:
+
+```
+-keep class com.android.installreferrer.** { *; }
+```
+
+To turn the referrer off, set `Kpi.AutoInstallReferrer = false` before `Kpi.Init()` (Flutter:
+`Kpi.init(autoInstallReferrer: false)`).
+
+## 8. Check your work
 
 1. Run a debug build with `Kpi.DebugLog` on and play through the tutorial, a won and a lost level,
    a rewarded ad and a test purchase. Every call prints one line.
 2. Open Firebase **DebugView**. On Android run
    `adb shell setprop debug.firebase.analytics.app <your.package.name>` first; on iOS add the
    `-FIRDebugEnabled` launch argument. Each event should appear with its params and `kpi_sdk`.
-3. Ship to internal testing. Within a few hours, the game's **Integration** tab on the dashboard lists every
+3. Install from a Play Store test track (not a sideloaded APK, which has no referrer) and check that
+   `install_attribution` arrives in DebugView with `attribution_provider` = `play_referrer`.
+4. Ship to internal testing. Within a few hours, the game's **Integration** tab on the dashboard lists every
    event group as "Receiving", or says which events are missing or which params look wrong.
 
 ## Revenue sources: tell us once

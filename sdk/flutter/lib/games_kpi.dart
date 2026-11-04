@@ -6,10 +6,12 @@ library games_kpi;
 
 import 'dart:math';
 
+import 'package:android_play_install_referrer/android_play_install_referrer.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+part 'src/install_referrer.dart';
 part 'src/kpi_events.g.dart';
 
 /// Version tag sent with every event as `kpi_sdk`.
@@ -33,15 +35,25 @@ abstract final class Kpi {
 
   /// Call once, after `await Firebase.initializeApp()`.
   /// Pass the player's consent answers if the game asks for consent.
+  ///
+  /// On Android, init also reads the Google Play install referrer once per
+  /// install and sends it as `install_attribution` (the player's UA source),
+  /// without waiting for it. Pass `autoInstallReferrer: false` to turn that off.
   static Future<void> init({
     FirebaseAnalytics? analytics,
     bool analyticsConsent = true,
     bool adsConsent = true,
+    bool autoInstallReferrer = true,
+    @visibleForTesting Future<String?> Function()? installReferrer,
   }) async {
     _prefs = await SharedPreferences.getInstance();
     _seq = _prefs!.getInt(_seqKey) ?? 0;
     _analytics = analytics ?? FirebaseAnalytics.instance;
     await setConsent(analytics: analyticsConsent, ads: adsConsent);
+    if (autoInstallReferrer) {
+      final done = _reportInstallReferrer(installReferrer ?? _readPlayReferrer);
+      if (installReferrer != null) await done; // tests wait; games do not
+    }
   }
 
   /// Updates consent. With analytics consent off, no KPI events are sent and

@@ -11,11 +11,13 @@ with last_seen as (
   group by 1, 2
 )
 select
-  game_id,
-  install_date,
-  platform,
-  coalesce(max_level_reached, 0) as last_level_number,
+  ls.game_id,
+  ls.install_date,
+  ls.platform,
+  coalesce(ua.ua_source, 'unknown') as ua_source,
+  coalesce(ls.max_level_reached, 0) as last_level_number,
   count(*) as churned_players
-from last_seen
-where last_active_date <= date_sub(current_date(), interval 3 day)
-group by 1, 2, 3, 4
+from last_seen as ls
+left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+where ls.last_active_date <= date_sub(current_date(), interval 3 day)
+group by 1, 2, 3, 4, 5

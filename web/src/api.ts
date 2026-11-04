@@ -56,6 +56,41 @@ export interface Filters {
   from: string;
   to: string;
   platform: 'all' | 'android' | 'ios';
+  /** 'all' or a UA source id such as organic, meta, google_ads. */
+  source: string;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  organic: 'Organic',
+  meta: 'Meta',
+  google_ads: 'Google Ads',
+  tiktok: 'TikTok',
+  apple_search_ads: 'Apple Search Ads',
+  unity_ads: 'Unity Ads',
+  applovin: 'AppLovin',
+  ironsource: 'ironSource',
+  mintegral: 'Mintegral',
+  moloco: 'Moloco',
+  liftoff: 'Liftoff',
+  snapchat: 'Snapchat',
+  unknown: 'Unknown',
+};
+
+/** Display name of a UA source id. */
+export function sourceLabel(id: string): string {
+  return SOURCE_LABELS[id] ?? id.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+}
+
+export interface SourceRow {
+  ua_source: string;
+  installs: number;
+  install_share: number | null;
+  avg_dau: number | null;
+  revenue_usd: number;
+  arpdau: number | null;
+  d1: DayStat;
+  d7: DayStat;
+  ltv_d7: DayStat;
 }
 
 export interface DayStat {

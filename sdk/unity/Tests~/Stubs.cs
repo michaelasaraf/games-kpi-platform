@@ -42,4 +42,42 @@ namespace UnityEngine
         public static void Log(object message) { Console.WriteLine(message); }
         public static void LogWarning(object message) { Console.WriteLine("WARN " + message); }
     }
+
+    public enum HideFlags { None = 0, HideAndDontSave = 61 }
+
+    public class Object
+    {
+        public HideFlags hideFlags;
+        public static void DontDestroyOnLoad(Object target) { }
+    }
+
+    public class Component : Object { }
+    public class MonoBehaviour : Component { }
+
+    public class GameObject : Object
+    {
+        public GameObject(string name) { }
+        public T AddComponent<T>() where T : Component, new() { return new T(); }
+    }
+
+    // Android interop, only to type-check the UNITY_ANDROID code paths.
+    public class AndroidJavaObject : IDisposable
+    {
+        public AndroidJavaObject(string className, params object[] args) { }
+        public void Call(string method, params object[] args) { }
+        public T Call<T>(string method, params object[] args) { return default(T); }
+        public T CallStatic<T>(string method, params object[] args) { return default(T); }
+        public T GetStatic<T>(string field) { return default(T); }
+        public void Dispose() { }
+    }
+
+    public class AndroidJavaClass : AndroidJavaObject
+    {
+        public AndroidJavaClass(string className) : base(className) { }
+    }
+
+    public class AndroidJavaProxy
+    {
+        public AndroidJavaProxy(string javaInterface) { }
+    }
 }

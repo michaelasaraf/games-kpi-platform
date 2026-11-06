@@ -36,14 +36,17 @@ vars:
   #   store_fee          share the store keeps, used for net IAP revenue (0.15 or 0.30)
   #   d1_target, d7_target  retention targets shown on the dashboard
   games:
-    - game_id: example_game
-      name: Example game
+    # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
+    # The game sends Firebase's own revenue events, so both revenue sources are firebase_auto.
+    # TODO: fill in firebase_project and analytics_dataset once BigQuery export is linked.
+    - game_id: gem_mine
+      name: Flintbeard's Gem Mine
       engine: unity
-      firebase_project: your-firebase-project
-      analytics_dataset: analytics_000000000
+      firebase_project: TODO-firebase-project-id
+      analytics_dataset: TODO-analytics_000000000
       timezone: UTC
-      iap_source: wrapper
-      ad_revenue_source: wrapper
+      iap_source: firebase_auto
+      ad_revenue_source: firebase_auto
       store_fee: 0.15
       d1_target: 0.40
       d7_target: 0.15

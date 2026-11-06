@@ -43,7 +43,7 @@ vars:
       name: Flintbeard's Gem Mine
       engine: unity
       firebase_project: gem-mine-a1d9d
-      analytics_dataset: TODO-analytics_000000000
+      analytics_dataset: analytics_562289841
       timezone: UTC
       iap_source: firebase_auto
       ad_revenue_source: firebase_auto

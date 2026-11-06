@@ -2,7 +2,11 @@
   "name": "GamesKpi",
   "rootNamespace": "GamesKpi",
   "references": [],
-  "includePlatforms": [],
+  "includePlatforms": [
+    "Android",
+    "Editor",
+    "iOS"
+  ],
   "excludePlatforms": [],
   "allowUnsafeCode": false,
   "overrideReferences": false,

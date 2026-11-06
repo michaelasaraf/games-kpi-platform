@@ -60,12 +60,22 @@ public static class WrapperTest
         Kpi.ReportInstallReferrer("utm_source=google-play&utm_medium=organic");
         Check(FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution") == sent, "referrer sent once per install");
 
+        Kpi.LogCustom("mine_enter", new Parameter("mine", 2L));
+        Check((long)P("mine_enter", "mine").Value == 2L, "custom event keeps its params");
+        Check(P("mine_enter", "kpi_event_id") != null, "custom event gets the envelope");
+
         Kpi.SetConsent(analytics: false, ads: false);
         int before = FirebaseAnalytics.Logged.Count;
         Kpi.LevelStart("w1_l02", 2);
         Check(FirebaseAnalytics.Logged.Count == before, "nothing sent without analytics consent");
         Check(!FirebaseAnalytics.CollectionEnabled, "Firebase collection disabled without consent");
         Check(FirebaseAnalytics.Consent[ConsentType.AdStorage] == ConsentStatus.Denied, "ad consent passed to Firebase");
+
+        FirebaseAnalytics.Consent = null;
+        Kpi.InitWithExistingConsent();
+        Check(FirebaseAnalytics.Consent == null, "InitWithExistingConsent leaves Firebase consent alone");
+        Kpi.LevelStart("w1_l03", 3);
+        Check(P("level_start", "level_name") != null && (string)P("level_start", "level_name").Value == "w1_l03", "sends again after InitWithExistingConsent");
 
         Console.WriteLine(failures == 0 ? "Unity wrapper: all checks passed" : $"Unity wrapper: {failures} checks failed");
         return failures == 0 ? 0 : 1;

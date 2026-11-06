@@ -14,6 +14,9 @@ namespace GamesKpi
     {
         public const string SdkVersion = "unity-0.1.0";
 
+        /// <summary>Params the wrapper adds to every event (kpi_event_id, kpi_seq, kpi_sdk). Firebase keeps at most 25 per event.</summary>
+        public const int EnvelopeParamCount = 3;
+
         const string SeqKey = "games_kpi_seq";
         const int MaxStringLength = 100;
 
@@ -37,6 +40,28 @@ namespace GamesKpi
             _initialized = true;
             SetConsent(analyticsConsent, adsConsent);
             StartInstallReferrer();
+        }
+
+        /// <summary>
+        /// Like <see cref="Init"/>, for games that manage Firebase consent and collection themselves (for example
+        /// through Google's UMP): the wrapper changes neither and sends events whenever the game calls it.
+        /// </summary>
+        public static void InitWithExistingConsent()
+        {
+            long.TryParse(PlayerPrefs.GetString(SeqKey, "0"), out _seq);
+            _initialized = true;
+            _collectionEnabled = true;
+            StartInstallReferrer();
+        }
+
+        /// <summary>
+        /// Sends any event with the envelope params added. For games that already have their own analytics layer:
+        /// route its Firebase calls through here so every event can be deduplicated and counted. Pass at most
+        /// 25 - <see cref="EnvelopeParamCount"/> params. Prefer the typed methods for catalog events.
+        /// </summary>
+        public static void LogCustom(string eventName, params Parameter[] parameters)
+        {
+            Log(eventName, new List<Parameter>(parameters ?? new Parameter[0]));
         }
 
         /// <summary>

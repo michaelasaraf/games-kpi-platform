@@ -73,6 +73,17 @@ await Kpi.init();   // or Kpi.init(analyticsConsent: ..., adsConsent: ...)
 
 Events called before `Init` are dropped with a warning, so initialise before the first scene that logs.
 
+### Games that already have their own analytics layer
+
+If the game already sends its own Firebase events through one class (Unity), keep that class and change two lines in it:
+
+- Call `Kpi.InitWithExistingConsent()` once Firebase is ready, instead of `Kpi.Init()`. It leaves Firebase consent and
+  collection as the game set them (for example through UMP).
+- Replace `FirebaseAnalytics.LogEvent(name, parameters)` with `Kpi.LogCustom(name, parameters)`. Every event then
+  carries the envelope params. Keep at most `25 - Kpi.EnvelopeParamCount` params per event.
+
+Catalog events sent this way must use the catalog's param names (for example `level_number` on `level_start`).
+
 ### Consent
 
 If the game shows a consent dialog, pass the answers to `Init`, and call

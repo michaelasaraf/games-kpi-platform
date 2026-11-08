@@ -64,7 +64,7 @@ vars:
       name: "Trade Empire: Cargo Tycoon"
       engine: flutter
       firebase_project: trade-empire-cargo-tycoon
-      analytics_dataset: analytics_TODO   # TODO: set once BigQuery export is linked
+      analytics_dataset: analytics_556106117
       timezone: UTC
       iap_source: firebase_auto
       ad_revenue_source: firebase_auto

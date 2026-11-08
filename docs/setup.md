@@ -62,6 +62,15 @@ Then, in the BigQuery console (**dataset > Sharing > Permissions**):
 Create a JSON key for each service account (**IAM > Service accounts > Keys > Add key**). The keys go into
 Railway variables below; do not commit them.
 
+`GCP_SA_KEY_JSON` takes the key file's JSON as pasted, or the file base64-encoded on one line, for editors
+that only accept one `KEY=value` line. On Windows, this copies the base64 form to the clipboard:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$HOME\Downloads\<key-file>.json")) | Set-Clipboard
+```
+
+On macOS or Linux: `base64 -w0 key.json` (macOS: `base64 -i key.json`).
+
 ## 4. Google sign-in for the dashboard
 
 **APIs & Services > Credentials > Create credentials > OAuth client ID**, type **Web application**.

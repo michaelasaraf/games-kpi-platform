@@ -14,7 +14,7 @@ export class BigQueryWarehouse implements Warehouse {
   private readonly datasetRef: string;
 
   constructor(private readonly config: Config) {
-    const credentials = config.GCP_SA_KEY_JSON ? JSON.parse(config.GCP_SA_KEY_JSON) : undefined;
+    const credentials = config.GCP_SA_KEY_JSON ? parseServiceAccountKey(config.GCP_SA_KEY_JSON) : undefined;
     this.bq = new BigQuery({ projectId: config.GCP_PROJECT, credentials });
     this.datasetRef = `\`${config.GCP_PROJECT}.${config.BQ_DATASET}\``;
   }
@@ -29,6 +29,27 @@ export class BigQueryWarehouse implements Warehouse {
     });
     return (rows as Record<string, unknown>[]).map(normalizeRow) as T[];
   }
+}
+
+/**
+ * Reads a service account key from an environment variable. Accepts the JSON itself (on one line or
+ * several, optionally wrapped in quotes) or the key file base64-encoded, since some env editors only
+ * take one KEY=value line.
+ */
+export function parseServiceAccountKey(text: string): Record<string, unknown> {
+  let t = text.trim();
+  if (t.length >= 2 && (t[0] === "'" || t[0] === '"') && t.at(-1) === t[0]) t = t.slice(1, -1).trim();
+  if (!t.startsWith('{')) t = Buffer.from(t, 'base64').toString('utf8').trim();
+  let key: unknown;
+  try {
+    key = JSON.parse(t);
+  } catch {
+    throw new Error('GCP_SA_KEY_JSON is not valid JSON or base64-encoded JSON');
+  }
+  if (!key || typeof key !== 'object' || !('client_email' in key) || !('private_key' in key)) {
+    throw new Error('GCP_SA_KEY_JSON is not a service account key (no client_email or private_key)');
+  }
+  return key as Record<string, unknown>;
 }
 
 /** BigQuery returns DATE as {value: 'YYYY-MM-DD'} and NUMERIC/BIGNUMERIC as objects; flatten them. */

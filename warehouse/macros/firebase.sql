@@ -45,7 +45,7 @@ parse_date('%Y%m%d', '{{ var('start_date') }}')
 {%- endif -%}
 {%- set seen = [] -%}
 {%- for g in games -%}
-  {%- for key in ['game_id', 'name', 'firebase_project', 'analytics_dataset'] -%}
+  {%- for key in ['game_id', 'name'] -%}
     {%- if not g.get(key) -%}
       {{ exceptions.raise_compiler_error("game " ~ loop.index ~ " is missing '" ~ key ~ "'") }}
     {%- endif -%}

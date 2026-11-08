@@ -16,8 +16,12 @@
   )
 }}
 
+{#- Games without analytics_dataset yet (export not linked) have no events: store revenue only. #}
+{%- set event_games = [] %}
+{%- for g in games() if g.get('firebase_project') and g.get('analytics_dataset') %}{% do event_games.append(g) %}{% endfor %}
+
 with raw as (
-  {%- for g in games() %}
+  {%- for g in event_games %}
   select
     '{{ g.game_id }}' as game_id,
     '{{ g.get("timezone", "UTC") }}' as tz,

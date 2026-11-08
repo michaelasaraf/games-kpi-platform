@@ -30,7 +30,8 @@ vars:
   #   name               display name in the dashboard
   #   engine             unity | flutter
   #   firebase_project   Google Cloud project that holds the game's Firebase export
-  #   analytics_dataset  the export dataset, e.g. analytics_123456789
+  #   analytics_dataset  the export dataset, e.g. analytics_123456789 (leave out until it exists:
+  #                      the game then shows store revenue only)
   #   timezone           IANA timezone that defines the game's "day"
   #   package_name       store package id (com.studio.game); needed for play_reports and admob_api
   #   iap_source         wrapper (our iap_purchase event) | firebase_auto (Firebase in_app_purchase)
@@ -99,7 +100,7 @@ vars:
       name: "Business Empire: World Tycoon"
       engine: flutter
       firebase_project: global-properties-tycoon
-      analytics_dataset: analytics_PENDING
+      # analytics_dataset: set once Firebase creates the export dataset. Until then only store revenue shows.
       timezone: UTC
       package_name: com.michaelgames.global_assets_tycoon
       extra_package_names: ["6804374009"]   # iOS App Store id (AdMob app ~6621130077)

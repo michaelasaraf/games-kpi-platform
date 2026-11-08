@@ -56,3 +56,30 @@ vars:
       # Until the wrapper build ships, the game's own events: level = mine, tutorial = ftue_* with `step`.
       level_number_param: mine
       tutorial_step_events: {prefix: ftue_, extra: [mine1_complete]}
+
+    # Trade Empire: Cargo Tycoon. Flutter, Android, AdMob mediation (Unity, Meta), Google Play IAP, Tenjin.
+    # The game sends no revenue events of its own to Firebase (its IAP and ad revenue go to Tenjin,
+    # Meta and the game's own server), so revenue here relies on Firebase's auto events.
+    - game_id: trade_empire
+      name: "Trade Empire: Cargo Tycoon"
+      engine: flutter
+      firebase_project: trade-empire-cargo-tycoon
+      analytics_dataset: analytics_TODO   # TODO: set once BigQuery export is linked
+      timezone: UTC
+      iap_source: firebase_auto
+      ad_revenue_source: firebase_auto
+      store_fee: 0.15
+      d1_target: 0.40
+      d7_target: 0.15
+      level_number_param: level
+      # tutorial_step_completed carries step_name only; the numbers follow the game's TutorialStep order
+      # (lib/models/tutorial.dart, analyticsName).
+      tutorial_step_events:
+        begin: tutorial_started
+        events: [tutorial_step_completed]
+        step_order: [intro, map_introduced, tapLondon, tapTrade, chooseParis, chooseCargo, chooseVehicle,
+          first_trade_started, watchDelivery, openDeliveries, waitDelivery, first_delivery_collected,
+          level2_introduced, tapNetherlands, unlockCountry, tapAmsterdam, hub_purchased, tapNewHub,
+          tapTradeNewHub, chooseLondon, chooseBetterTrade, openContracts, contracts_introduced,
+          fleet_introduced, openMarket, second_vehicle_purchased, compareVehicles, vehicle_upgraded,
+          idle_vehicle_sent, empireGrowing, hub_upgrade_started, speedUp, tutorial_completed]

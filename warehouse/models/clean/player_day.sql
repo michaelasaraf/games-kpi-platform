@@ -27,12 +27,13 @@ select
   count(distinct session_id) as sessions,
   coalesce(sum(engagement_msec), 0) / 1000 as playtime_sec,
 
-  countif(event_name = 'tutorial_begin') > 0 as tutorial_began,
+  countif(event_name = 'tutorial_begin' or (is_tutorial_step and tutorial_step = 0)) > 0 as tutorial_began,
   countif(event_name = 'tutorial_complete') > 0 as tutorial_completed,
   countif(event_name = 'level_start') as level_starts,
   countif(event_name = 'level_end' and success = 1) as level_completes,
   countif(event_name = 'level_end' and coalesce(success, 0) = 0) as level_fails,
-  max(if(event_name in ('level_start', 'level_end'), level_number, null)) as max_level_number,
+  -- level_up: games that log only Firebase's level_up with the player's level.
+  max(if(event_name in ('level_start', 'level_end', 'level_up'), level_number, null)) as max_level_number,
   max(if(event_name = 'level_end' and success = 1, level_number, null)) as max_level_completed,
 
   countif(ad_revenue_usd is not null) as ad_impressions,

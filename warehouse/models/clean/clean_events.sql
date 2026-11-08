@@ -31,10 +31,20 @@ with raw as (
     {% if lnp != "level_number" %}coalesce({{ param_int('level_number') }}, {{ param_int(lnp) }}){% else %}{{ param_int('level_number') }}{% endif %} as mapped_level_number,
     {%- set tse = g.get("tutorial_step_events") %}
     {%- if tse %}
-    (starts_with(event_name, '{{ tse.prefix }}')
-      {%- for e in tse.get("extra", []) %} or event_name = '{{ e }}'{% endfor %}) as is_game_tutorial_step,
+    (false
+      {%- if tse.get("prefix") %} or starts_with(event_name, '{{ tse.prefix }}'){% endif %}
+      {%- if tse.get("begin") %} or event_name = '{{ tse.begin }}'{% endif %}
+      {%- for e in tse.get("events", []) + tse.get("extra", []) %} or event_name = '{{ e }}'{% endfor %}) as is_game_tutorial_step,
+    -- Games whose step events carry a name but no number: the begin event is step 0 and the
+    -- step number is the name's position in step_order (from 1).
+    {%- set order = tse.get("step_order", []) %}
+    {% if tse.get("begin") %}if(event_name = '{{ tse.begin }}', 0, {% endif -%}
+    {% if order %}case {{ param_str('step_name') }}
+      {%- for n in order %} when '{{ n }}' then {{ loop.index }}{% endfor %} end{% else %}cast(null as int64){% endif -%}
+    {% if tse.get("begin") %}){% endif %} as mapped_tutorial_step,
     {%- else %}
     false as is_game_tutorial_step,
+    cast(null as int64) as mapped_tutorial_step,
     {%- endif %}
     event_name,
     event_timestamp,
@@ -112,7 +122,7 @@ flattened as (
 
     -- progression
     (event_name = 'tutorial_step' or is_game_tutorial_step) as is_tutorial_step,
-    {{ param_int('step') }} as tutorial_step,
+    coalesce({{ param_int('step') }}, mapped_tutorial_step) as tutorial_step,
     coalesce({{ param_str('step_name') }}, if(is_game_tutorial_step, event_name, null)) as tutorial_step_name,
     {{ param_str('level_name') }} as level_name,
     mapped_level_number as level_number,

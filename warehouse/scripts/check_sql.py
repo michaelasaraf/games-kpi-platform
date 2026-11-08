@@ -45,6 +45,7 @@ def render_model(path, incremental):
         "var": lambda name, default=None: VARS.get(name, default),
         "is_incremental": lambda: incremental,
         "ref": lambda name: f"`proj`.`games_kpi`.`{name}`",
+        "source": lambda src, name: f"`proj`.`games_kpi`.`{name}`",
         "config": lambda **kw: "",
         "exceptions": Exceptions,
         "modules": type("M", (), {"re": re}),

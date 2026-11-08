@@ -278,6 +278,9 @@ So revenue is never counted twice, the platform owner records two settings for e
 | Ad revenue | You call `AdImpression` (MAX, LevelPlay, or AdMob not linked to Firebase) | AdMob is linked to Firebase and you do not call `AdImpression` |
 | IAP revenue | You call `IapPurchase` (recommended) | You rely on Firebase's automatic `in_app_purchase` |
 
+A third option for each, `play_reports` for IAP and `admob_api` for ads, takes the totals straight from Google Play and AdMob,
+with nothing to send from the game (see setup, section 7). Those totals cannot be split by player.
+
 Send `IapPurchase` even with `firebase_auto`. The dashboard then does not count it as revenue, but it still feeds the purchase checks on the Integration tab.
 
 ## Rules for all events

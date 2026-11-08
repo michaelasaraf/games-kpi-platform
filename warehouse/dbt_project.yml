@@ -6,6 +6,7 @@ profile: games_kpi
 model-paths: ["models"]
 macro-paths: ["macros"]
 test-paths: ["tests"]
+seed-paths: ["seeds"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
@@ -31,8 +32,11 @@ vars:
   #   firebase_project   Google Cloud project that holds the game's Firebase export
   #   analytics_dataset  the export dataset, e.g. analytics_123456789
   #   timezone           IANA timezone that defines the game's "day"
+  #   package_name       store package id (com.studio.game); needed for play_reports and admob_api
   #   iap_source         wrapper (our iap_purchase event) | firebase_auto (Firebase in_app_purchase)
+  #                      | play_reports (Google Play sales reports: real orders only, no per-player split)
   #   ad_revenue_source  wrapper (our ad_impression) | firebase_auto (AdMob auto-logged ad_impression)
+  #                      | admob_api (AdMob mediation report, every ad source, no per-player split)
   #   store_fee          share the store keeps, used for net IAP revenue (0.15 or 0.30)
   #   d1_target, d7_target  retention targets shown on the dashboard
   #   level_number_param    optional: the param that holds the level number, if not level_number
@@ -40,16 +44,16 @@ vars:
   #                         steps ({prefix: ftue_, extra: [...]}); the step number is read from `step`
   games:
     # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
-    # The game sends Firebase's own revenue events, so both revenue sources are firebase_auto.
-    # TODO: fill in firebase_project and analytics_dataset once BigQuery export is linked.
+    # Revenue comes from Google Play's sales reports and the AdMob API (Firebase has no revenue events for it).
     - game_id: gem_mine
       name: Flintbeard's Gem Mine
       engine: unity
       firebase_project: gem-mine-a1d9d
       analytics_dataset: analytics_562289841
       timezone: UTC
-      iap_source: firebase_auto
-      ad_revenue_source: firebase_auto
+      package_name: com.tycoonstylegames.gemmine
+      iap_source: play_reports
+      ad_revenue_source: admob_api
       store_fee: 0.15
       d1_target: 0.40
       d7_target: 0.15
@@ -58,16 +62,16 @@ vars:
       tutorial_step_events: {prefix: ftue_, extra: [mine1_complete]}
 
     # Trade Empire: Cargo Tycoon. Flutter, Android, AdMob mediation (Unity, Meta), Google Play IAP, Tenjin.
-    # The game sends no revenue events of its own to Firebase (its IAP and ad revenue go to Tenjin,
-    # Meta and the game's own server), so revenue here relies on Firebase's auto events.
+    # Revenue comes from Google Play's sales reports and the AdMob API.
     - game_id: trade_empire
       name: "Trade Empire: Cargo Tycoon"
       engine: flutter
       firebase_project: trade-empire-cargo-tycoon
       analytics_dataset: analytics_556106117
       timezone: UTC
-      iap_source: firebase_auto
-      ad_revenue_source: firebase_auto
+      package_name: com.michaelgames.trade_empire
+      iap_source: play_reports
+      ad_revenue_source: admob_api
       store_fee: 0.15
       d1_target: 0.40
       d7_target: 0.15

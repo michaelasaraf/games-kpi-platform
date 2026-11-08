@@ -1,5 +1,7 @@
 -- Additive daily totals per game, date, platform, country and UA source. The API sums these
 -- over any filter and divides (for example ARPDAU = (ad + IAP net revenue) / DAU).
+-- Games on store revenue (play_reports, admob_api) get extra rows from store_revenue with
+-- ua_source 'unattributed' and no players: the stores report totals, not players.
 select
   pd.game_id,
   pd.event_date,
@@ -35,3 +37,40 @@ select
 from {{ ref('player_day') }} as pd
 left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
 group by 1, 2, 3, 4, 5
+
+union all
+
+select
+  game_id,
+  revenue_date as event_date,
+  platform,
+  country,
+  'unattributed' as ua_source,
+  0 as dau,
+  0 as new_players,
+  0 as sessions,
+  0 as playtime_sec,
+  0 as level_starts,
+  0 as level_completes,
+  0 as level_fails,
+  sum(if(revenue_type = 'ad', impressions, 0)) as ad_impressions,
+  sum(if(ad_format = 'rewarded', impressions, 0)) as rewarded_impressions,
+  sum(if(ad_format = 'interstitial', impressions, 0)) as interstitial_impressions,
+  sum(if(ad_format = 'banner', impressions, 0)) as banner_impressions,
+  0 as rewarded_viewers,
+  sum(if(revenue_type = 'ad', net_usd, 0)) as ad_revenue_usd,
+  sum(if(ad_format = 'rewarded', net_usd, 0)) as rewarded_revenue_usd,
+  sum(if(ad_format = 'interstitial', net_usd, 0)) as interstitial_revenue_usd,
+  sum(if(ad_format = 'banner', net_usd, 0)) as banner_revenue_usd,
+  0 as ad_offers_shown,
+  0 as ad_offers_accepted,
+  sum(orders) as purchases,
+  0 as payers,
+  sum(if(revenue_type = 'iap', gross_usd, 0)) as iap_revenue_gross_usd,
+  sum(if(revenue_type = 'iap', net_usd, 0)) as iap_revenue_net_usd,
+  0 as store_viewers,
+  0 as store_viewer_payers,
+  0 as blocked_players,
+  0 as blocker_hits
+from {{ ref('store_revenue') }}
+group by 1, 2, 3, 4

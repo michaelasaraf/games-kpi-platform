@@ -57,11 +57,14 @@ parse_date('%Y%m%d', '{{ var('start_date') }}')
     {{ exceptions.raise_compiler_error("duplicate game_id '" ~ g.game_id ~ "'") }}
   {%- endif -%}
   {%- do seen.append(g.game_id) -%}
-  {%- if g.get('iap_source', 'wrapper') not in ['wrapper', 'firebase_auto'] -%}
-    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': iap_source must be wrapper or firebase_auto") }}
+  {%- if g.get('iap_source', 'wrapper') not in ['wrapper', 'firebase_auto', 'play_reports'] -%}
+    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': iap_source must be wrapper, firebase_auto or play_reports") }}
   {%- endif -%}
-  {%- if g.get('ad_revenue_source', 'wrapper') not in ['wrapper', 'firebase_auto'] -%}
-    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': ad_revenue_source must be wrapper or firebase_auto") }}
+  {%- if g.get('ad_revenue_source', 'wrapper') not in ['wrapper', 'firebase_auto', 'admob_api'] -%}
+    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': ad_revenue_source must be wrapper, firebase_auto or admob_api") }}
+  {%- endif -%}
+  {%- if (g.get('iap_source') == 'play_reports' or g.get('ad_revenue_source') == 'admob_api') and not g.get('package_name') -%}
+    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': play_reports and admob_api need package_name") }}
   {%- endif -%}
 {%- endfor -%}
 {{ return(games) }}

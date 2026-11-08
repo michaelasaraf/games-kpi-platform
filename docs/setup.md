@@ -158,6 +158,46 @@ Leave out `BQ_DATASET` to build into `games_kpi_dev` instead, which is the safe 
    anyone `ACCESS_JSON` allows.
 4. Send the game team the [integration guide](integration-guide.md) and check their Integration tab.
 
+## 7. Revenue from Google Play and AdMob
+
+Games with `iap_source: play_reports` or `ad_revenue_source: admob_api` take their revenue from the
+stores, not from events. Before each build, `scripts/load_revenue.py` loads Google Play's sales
+reports and AdMob's mediation report into `src_play_sales` and `src_admob_daily`, and dbt matches the rows
+to games by `package_name`. Set each source up once; that covers every game in the account.
+
+These are account totals with no player id. On the dashboard they show under the UA source
+`unattributed`, so a UA source filter leaves them out. They are also missing from cohort LTV and payer counts.
+Linking AdMob and Google Play to each game's Firebase project adds per-player revenue for those views.
+
+**Google Play**
+
+1. In Play Console → Users and permissions, invite `kpi-models@games-kpi.iam.gserviceaccount.com`
+   with **View app information and download bulk reports** and **View financial data**. Google can take up to a day to apply it.
+2. Play Console → Download reports → Financial → **Copy Cloud Storage URI** (`gs://pubsite_prod_...`).
+3. Set `PLAY_REPORTS_BUCKET` to it on the `kpi-models` service.
+
+The job reads `sales/salesreport_YYYYMM.zip` (estimated sales, updated daily): real orders only,
+since license testers are never charged. It converts each order's buyer currency to USD at that day's rate
+(from the free currency-api dataset), books refunds as negative, and counts the item price without tax
+as gross. Net applies `store_fee`.
+
+**AdMob**
+
+The AdMob API only accepts a user's sign-in, so this runs as you, read-only.
+
+1. In the `games-kpi` Google Cloud project, enable the **AdMob API**.
+2. APIs & Services → OAuth consent screen: set it up as External, add yourself as a test user,
+   and publish it (in Testing mode, refresh tokens expire after 7 days).
+3. Credentials → Create credentials → OAuth client ID → **Desktop app**. Note the client id and secret.
+4. `python warehouse/scripts/admob_auth.py url CLIENT_ID`, open the link, allow access, then
+   `python warehouse/scripts/admob_auth.py token CLIENT_ID CLIENT_SECRET '<the localhost address>'`.
+5. Set `ADMOB_CLIENT_ID`, `ADMOB_CLIENT_SECRET` and `ADMOB_REFRESH_TOKEN` on the `kpi-models` service.
+
+The first run loads the last 365 days, and later runs reload the last 7. Earnings are in USD, from
+every mediated ad source. AdMob days follow the AdMob account's time zone.
+
+If a source fails, the job logs `load_revenue` with the error, and the build keeps the last good load.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |
@@ -167,3 +207,4 @@ Leave out `BQ_DATASET` to build into `games_kpi_dev` instead, which is the safe 
 | Dashboard shows no games after sign-in | The email is not in `ACCESS_JSON`, or the game has no rows yet. |
 | Today's numbers are empty | Streaming export is off; daily tables arrive about a day later. |
 | Revenue looks doubled | `ad_revenue_source` or `iap_source` does not match what the game sends. |
+| Store revenue is $0 | Check the `load_revenue` lines in the `kpi-models` log: a source not set up, Play access not applied yet, or a `package_name` that does not match the store. |

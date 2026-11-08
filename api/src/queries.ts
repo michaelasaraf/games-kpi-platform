@@ -38,7 +38,7 @@ const SUM_TOTALS = `
   SUM(iap_revenue_gross_usd) AS iap_revenue_gross_usd, SUM(iap_revenue_net_usd) AS iap_revenue_net_usd,
   SUM(store_viewers) AS store_viewers, SUM(store_viewer_payers) AS store_viewer_payers,
   SUM(blocked_players) AS blocked_players, SUM(blocker_hits) AS blocker_hits,
-  MIN(event_date) AS first_date`;
+  MIN(IF(dau > 0, event_date, NULL)) AS first_date`;  // store revenue rows (dau 0) can predate the first player
 
 /** Yesterday in UTC: the last day whose numbers are complete. */
 export function lastCompleteDate(now = new Date()): string {

@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  # Written by scripts/load_revenue.py before each build, in the build's own dataset.
+  - name: store
+    schema: "{{ target.schema }}"
+    tables:
+      - name: src_play_sales
+        description: Google Play estimated sales report rows (one per order or refund), USD-converted.
+      - name: src_admob_daily
+        description: AdMob mediation report per day, app, country, format, platform and ad source (USD).

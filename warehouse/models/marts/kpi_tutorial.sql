@@ -12,7 +12,7 @@ with steps as (
     end as step,
     tutorial_step_name as step_name
   from {{ ref('clean_events') }}
-  where event_name in ('tutorial_begin', 'tutorial_step', 'tutorial_complete')
+  where event_name in ('tutorial_begin', 'tutorial_complete') or is_tutorial_step
 ),
 cohort_platform as (
   select pd.game_id, pd.player_id, any_value(coalesce(pd.platform, 'unknown')) as platform,

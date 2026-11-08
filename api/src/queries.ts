@@ -37,7 +37,8 @@ const SUM_TOTALS = `
   SUM(ad_offers_accepted) AS ad_offers_accepted, SUM(purchases) AS purchases, SUM(payers) AS payers,
   SUM(iap_revenue_gross_usd) AS iap_revenue_gross_usd, SUM(iap_revenue_net_usd) AS iap_revenue_net_usd,
   SUM(store_viewers) AS store_viewers, SUM(store_viewer_payers) AS store_viewer_payers,
-  SUM(blocked_players) AS blocked_players, SUM(blocker_hits) AS blocker_hits`;
+  SUM(blocked_players) AS blocked_players, SUM(blocker_hits) AS blocker_hits,
+  MIN(event_date) AS first_date`;
 
 /** Yesterday in UTC: the last day whose numbers are complete. */
 export function lastCompleteDate(now = new Date()): string {
@@ -68,8 +69,13 @@ export class KpiService {
     return { game: gameId, from: r.from, to: r.to, platform: r.platform, source: r.source };
   }
 
-  private days(r: Range) {
-    return daysBetween(r.from, r.to) + 1;
+  /**
+   * Days to average over: the range, but starting no earlier than the first day with data,
+   * so a game that launched mid-range is not averaged over days before it existed.
+   */
+  private days(r: Range, firstDate?: unknown) {
+    const start = typeof firstDate === 'string' && firstDate > r.from ? firstDate : r.from;
+    return Math.max(1, daysBetween(start, r.to) + 1);
   }
 
   /** Engagement, monetization and the launch scorecard for one game. */
@@ -87,7 +93,7 @@ export class KpiService {
       ),
       this.cohortRows(gameId, r),
     ]);
-    const totals = toTotals(totalsRows[0] ?? {}, this.days(r));
+    const totals = toTotals(totalsRows[0] ?? {}, this.days(r, totalsRows[0]?.first_date));
     const last = lastCompleteDate(this.now());
     const day = (d: number) => {
       const b = blendedDay(cohorts, last, d);
@@ -292,13 +298,15 @@ export class KpiService {
     ]);
     const last = lastCompleteDate(this.now());
     const installsAll = totals.reduce((sum, t) => sum + Number(t.new_players ?? 0), 0);
+    // Every source is averaged over the same days: from the game's first day with data.
+    const firstDate = totals.map((t) => t.first_date).filter((d): d is string => typeof d === 'string').sort()[0];
     const rows = totals.map((t) => {
       const mine = cohorts.filter((c) => c.ua_source === t.ua_source);
       const day = (d: number) => {
         const b = blendedDay(mine, last, d);
         return { ...b, reliable: b.players >= MIN_RELIABLE_COHORT };
       };
-      const money = engagementAndMoney(toTotals(t, this.days(r)));
+      const money = engagementAndMoney(toTotals(t, this.days(r, firstDate)));
       return {
         ua_source: t.ua_source,
         installs: money.installs,

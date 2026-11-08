@@ -35,6 +35,9 @@ vars:
   #   ad_revenue_source  wrapper (our ad_impression) | firebase_auto (AdMob auto-logged ad_impression)
   #   store_fee          share the store keeps, used for net IAP revenue (0.15 or 0.30)
   #   d1_target, d7_target  retention targets shown on the dashboard
+  #   level_number_param    optional: the param that holds the level number, if not level_number
+  #   tutorial_step_events  optional: for games with their own tutorial events, which events count as
+  #                         steps ({prefix: ftue_, extra: [...]}); the step number is read from `step`
   games:
     # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
     # The game sends Firebase's own revenue events, so both revenue sources are firebase_auto.
@@ -50,3 +53,6 @@ vars:
       store_fee: 0.15
       d1_target: 0.40
       d7_target: 0.15
+      # Until the wrapper build ships, the game's own events: level = mine, tutorial = ftue_* with `step`.
+      level_number_param: mine
+      tutorial_step_events: {prefix: ftue_, extra: [mine1_complete]}

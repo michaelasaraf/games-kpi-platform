@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  catalog:
+    name: Event catalog and generated code
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: tools/codegen } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm test
+      - name: Generated files are up to date
+        run: node src/index.js --check
+
+  api:
+    name: Dashboard API
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: api } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+  web:
+    name: Dashboard web
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: web } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  warehouse:
+    name: KPI models (dbt)
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: warehouse } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt sqlglot
+      - name: dbt parse
+        run: dbt parse --profiles-dir .
+        env: { GCP_PROJECT: ci-placeholder }
+      - name: Render and parse every model as BigQuery SQL
+        run: python scripts/check_sql.py
+
+  unity:
+    name: Unity wrapper
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -q && sudo apt-get install -y -q mono-mcs mono-runtime
+      - run: sdk/unity/Tests~/run.sh
+
+  flutter:
+    name: Flutter wrapper
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: sdk/flutter } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable }
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

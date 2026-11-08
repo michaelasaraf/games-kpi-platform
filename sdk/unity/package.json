@@ -1,0 +1,8 @@
+{
+  "name": "com.gameskpi.analytics",
+  "version": "0.1.0",
+  "displayName": "Games KPI",
+  "description": "Thin wrapper over Firebase Analytics that sends the shared Games KPI event catalog.",
+  "unity": "2021.3",
+  "author": { "name": "Games KPI" }
+}

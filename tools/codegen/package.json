@@ -1,0 +1,13 @@
+{
+  "name": "games-kpi-codegen",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "codegen": "node src/index.js",
+    "check": "node src/index.js --check",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "yaml": "2.8.1"
+  }
+}

@@ -1,0 +1,191 @@
+# Games KPI event catalog: the single source of truth.
+#
+# Every game sends these events through the Unity or Flutter wrapper.
+# `npm run codegen` (in tools/codegen) turns this file into:
+#   - sdk/unity/Runtime/KpiEvents.g.cs
+#   - sdk/flutter/lib/src/kpi_events.g.dart
+#   - docs/event-catalog.md
+#
+# Rules (Firebase limits): snake_case names, at most 40 characters,
+# at most 25 params per event, string values at most 100 characters.
+# Param types: string, int, double, bool. Bools are sent to Firebase as int 1 or 0.
+#
+# Events Firebase logs by itself are listed under `automatic` for reference;
+# the wrappers never send them.
+
+version: 1
+
+automatic:
+  - name: first_open
+    feeds: Installs, install cohorts
+  - name: session_start
+    feeds: Sessions per DAU (via ga_session_id)
+  - name: user_engagement
+    feeds: Playtime per DAU (engagement_time_msec)
+  - name: in_app_purchase
+    feeds: IAP revenue when the game's iap_source is firebase_auto
+  - name: app_store_refund
+    feeds: Refunds (iOS)
+
+events:
+  # --- Attribution -----------------------------------------------------------
+  - name: install_attribution
+    group: attribution
+    method: InstallAttribution
+    description: >-
+      Where the player came from (UA source). On Android the wrapper sends this by itself from
+      the Google Play install referrer, once per install. Games with an attribution SDK (Tenjin,
+      AppsFlyer, Adjust) also call it from that SDK's attribution callback; the dashboard prefers
+      the SDK's answer, then the referrer, then Firebase's own install source.
+    params:
+      - { name: attribution_provider, type: string, required: true, description: "Who decided the source: tenjin, appsflyer, adjust, or play_referrer (sent by the wrapper)" }
+      - { name: media_source, type: string, required: true, description: "Network as the provider names it, e.g. facebook, googleadwords_int, organic" }
+      - { name: campaign, type: string, required: false, description: "Campaign name, if known" }
+      - { name: adset, type: string, required: false, description: "Ad set or ad group, if known" }
+      - { name: is_organic, type: bool, required: false, description: "true when the provider says the install was organic" }
+      - { name: referrer, type: string, required: false, description: "Raw install referrer (play_referrer only), cut to 100 characters" }
+
+  # --- Progression -----------------------------------------------------------
+  - name: tutorial_begin
+    group: progression
+    method: TutorialBegin
+    description: The tutorial starts. Call once per player.
+    params: []
+
+  - name: tutorial_step
+    group: progression
+    method: TutorialStep
+    description: The player finishes one tutorial step. Steps are numbered from 1.
+    params:
+      - { name: step, type: int, required: true, description: "Step number, starting at 1" }
+      - { name: step_name, type: string, required: false, description: "Short name, e.g. swipe_to_match" }
+
+  - name: tutorial_complete
+    group: progression
+    method: TutorialComplete
+    description: The last tutorial step is finished.
+    params: []
+
+  - name: level_start
+    group: progression
+    method: LevelStart
+    description: A level attempt starts (also on retry).
+    params:
+      - { name: level_name, type: string, required: true, description: "Stable level id, e.g. w1_l07" }
+      - { name: level_number, type: int, required: true, description: "Position in the level order, starting at 1" }
+      - { name: attempt, type: int, required: false, description: "Attempt number for this player on this level, starting at 1" }
+
+  - name: level_end
+    group: progression
+    method: LevelEnd
+    description: A level attempt ends, won or lost. Quitting mid-level counts as a fail.
+    params:
+      - { name: level_name, type: string, required: true, description: "Same id as level_start" }
+      - { name: level_number, type: int, required: true, description: "Same as level_start" }
+      - { name: success, type: bool, required: true, description: "true = completed, false = failed or quit (sent as 1 or 0)" }
+      - { name: duration_sec, type: int, required: false, description: "Seconds spent in the attempt" }
+      - { name: attempt, type: int, required: false, description: "Attempt number" }
+      - { name: stars, type: int, required: false, description: "Stars or score tier, if the game has them" }
+      - { name: boosters_used, type: int, required: false, description: "Boosters used in the attempt" }
+
+  # --- Ads -------------------------------------------------------------------
+  - name: ad_offer_shown
+    group: ads
+    method: AdOfferShown
+    description: The game offers a rewarded ad (button or popup becomes visible).
+    params:
+      - { name: placement, type: string, required: true, description: "Where the offer is, e.g. double_coins" }
+
+  - name: ad_offer_accepted
+    group: ads
+    method: AdOfferAccepted
+    description: The player taps to watch the offered rewarded ad.
+    params:
+      - { name: placement, type: string, required: true, description: "Same as ad_offer_shown" }
+
+  - name: ad_impression
+    group: ads
+    method: AdImpression
+    description: >-
+      An ad was shown and earned revenue. Forward the mediation SDK's paid/revenue
+      callback here (AppLovin MAX OnAdRevenuePaid, LevelPlay ImpressionDataReady,
+      AdMob OnPaidEvent). Skip it for AdMob if Firebase already logs ad_impression
+      automatically, or revenue is counted twice.
+    params:
+      - { name: ad_platform, type: string, required: true, description: "Mediation: applovin_max, levelplay, admob" }
+      - { name: ad_source, type: string, required: false, description: "Network that served the ad" }
+      - { name: ad_format, type: string, required: true, description: "rewarded, interstitial, banner, app_open" }
+      - { name: ad_unit_name, type: string, required: false, description: "Ad unit id or name" }
+      - { name: placement, type: string, required: false, description: "Game placement name" }
+      - { name: value, type: double, required: true, description: "Revenue of this impression" }
+      - { name: currency, type: string, required: true, description: "ISO currency, usually USD" }
+
+  # --- Store and IAP ---------------------------------------------------------
+  - name: store_view
+    group: iap
+    method: StoreView
+    description: The store screen opens.
+    params:
+      - { name: store_section, type: string, required: false, description: "Tab or section, e.g. coins, offers" }
+
+  - name: offer_shown
+    group: iap
+    method: OfferShown
+    description: A paid offer is shown (popup, banner or store card).
+    params:
+      - { name: offer_id, type: string, required: true, description: "Offer or product id" }
+      - { name: placement, type: string, required: false, description: "Where it was shown" }
+
+  - name: iap_purchase
+    group: iap
+    method: IapPurchase
+    description: >-
+      A purchase succeeded. Always send it. The dashboard counts it as revenue when the
+      game's iap_source is wrapper; with firebase_auto it uses Firebase's own
+      in_app_purchase event instead, so revenue is never counted twice.
+    params:
+      - { name: product_id, type: string, required: true, description: "Store product id" }
+      - { name: value, type: double, required: true, description: "Price paid, in the local currency (Firebase converts it to USD)" }
+      - { name: currency, type: string, required: true, description: "ISO currency of the price, e.g. EUR" }
+      - { name: transaction_id, type: string, required: true, description: "Store transaction / order id" }
+      - { name: store, type: string, required: false, description: "google_play or app_store" }
+
+  # --- Economy ---------------------------------------------------------------
+  - name: earn_virtual_currency
+    group: economy
+    method: EarnCurrency
+    description: The player gains soft or hard currency.
+    params:
+      - { name: virtual_currency_name, type: string, required: true, description: "coins, gems, lives..." }
+      - { name: value, type: int, required: true, description: "Amount gained" }
+      - { name: source, type: string, required: true, description: "Why: level_reward, daily_bonus, rewarded_ad, purchase..." }
+      - { name: balance_after, type: int, required: false, description: "Balance after the change" }
+      - { name: level_name, type: string, required: false, description: "Level where it happened, if any" }
+
+  - name: spend_virtual_currency
+    group: economy
+    method: SpendCurrency
+    description: The player spends currency.
+    params:
+      - { name: virtual_currency_name, type: string, required: true, description: "coins, gems, lives..." }
+      - { name: value, type: int, required: true, description: "Amount spent" }
+      - { name: sink, type: string, required: true, description: "On what: booster, continue, unlock, cosmetic..." }
+      - { name: item_name, type: string, required: false, description: "Item bought, if any" }
+      - { name: balance_after, type: int, required: false, description: "Balance after the change" }
+      - { name: level_name, type: string, required: false, description: "Level where it happened, if any" }
+
+  - name: item_used
+    group: economy
+    method: ItemUsed
+    description: A booster or consumable item is used.
+    params:
+      - { name: item_id, type: string, required: true, description: "Item id" }
+      - { name: level_name, type: string, required: false, description: "Level where it was used" }
+
+  - name: blocker_hit
+    group: economy
+    method: BlockerHit
+    description: The player cannot continue without paying, watching an ad or waiting.
+    params:
+      - { name: reason, type: string, required: true, description: "no_lives, not_enough_coins, locked_content..." }
+      - { name: level_name, type: string, required: false, description: "Level where it happened" }

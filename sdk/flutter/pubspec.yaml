@@ -1,0 +1,20 @@
+name: games_kpi
+description: Thin wrapper over Firebase Analytics that sends the shared Games KPI event catalog.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  android_play_install_referrer: ^0.4.0
+  firebase_analytics: ">=11.0.0 <13.0.0"
+  shared_preferences: ">=2.2.0 <3.0.0"
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0

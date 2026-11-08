@@ -1,0 +1,58 @@
+name: games_kpi
+version: "0.1.0"
+config-version: 2
+profile: games_kpi
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  games_kpi:
+    +materialized: table
+    clean:
+      +schema: null
+    marts:
+      +schema: null
+
+vars:
+  # How many days back each incremental run reprocesses. Firebase keeps updating a
+  # day's export for up to 72 hours, so keep this at 3 or more.
+  lookback_days: 3
+  # Earliest date read on a full refresh (YYYYMMDD).
+  start_date: "20240101"
+
+  # One entry per game. This is the only place a new game has to be added.
+  #   game_id            short stable id used everywhere (letters, digits, _)
+  #   name               display name in the dashboard
+  #   engine             unity | flutter
+  #   firebase_project   Google Cloud project that holds the game's Firebase export
+  #   analytics_dataset  the export dataset, e.g. analytics_123456789
+  #   timezone           IANA timezone that defines the game's "day"
+  #   iap_source         wrapper (our iap_purchase event) | firebase_auto (Firebase in_app_purchase)
+  #   ad_revenue_source  wrapper (our ad_impression) | firebase_auto (AdMob auto-logged ad_impression)
+  #   store_fee          share the store keeps, used for net IAP revenue (0.15 or 0.30)
+  #   d1_target, d7_target  retention targets shown on the dashboard
+  #   level_number_param    optional: the param that holds the level number, if not level_number
+  #   tutorial_step_events  optional: for games with their own tutorial events, which events count as
+  #                         steps ({prefix: ftue_, extra: [...]}); the step number is read from `step`
+  games:
+    # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
+    # The game sends Firebase's own revenue events, so both revenue sources are firebase_auto.
+    # TODO: fill in firebase_project and analytics_dataset once BigQuery export is linked.
+    - game_id: gem_mine
+      name: Flintbeard's Gem Mine
+      engine: unity
+      firebase_project: gem-mine-a1d9d
+      analytics_dataset: analytics_562289841
+      timezone: UTC
+      iap_source: firebase_auto
+      ad_revenue_source: firebase_auto
+      store_fee: 0.15
+      d1_target: 0.40
+      d7_target: 0.15
+      # Until the wrapper build ships, the game's own events: level = mine, tutorial = ftue_* with `step`.
+      level_number_param: mine
+      tutorial_step_events: {prefix: ftue_, extra: [mine1_complete]}

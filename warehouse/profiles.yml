@@ -1,0 +1,24 @@
+# dbt reads this file when run with --profiles-dir . (the scripts and Docker image do).
+games_kpi:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
+  outputs:
+    # Local development: uses your own `gcloud auth application-default login`.
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: "{{ env_var('BQ_DATASET', 'games_kpi_dev') }}"
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      threads: 4
+      job_execution_timeout_seconds: 600
+    # Railway cron: a service account key file written from the GCP_SA_KEY_JSON variable.
+    prod:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GCP_KEYFILE', '/tmp/gcp-sa.json') }}"
+      project: "{{ env_var('GCP_PROJECT') }}"
+      dataset: "{{ env_var('BQ_DATASET', 'games_kpi') }}"
+      location: "{{ env_var('BQ_LOCATION', 'US') }}"
+      threads: 4
+      job_execution_timeout_seconds: 600
+      maximum_bytes_billed: 200000000000

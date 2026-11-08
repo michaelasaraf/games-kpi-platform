@@ -36,6 +36,13 @@ models:
       - name: ua_source
         data_tests: [not_null]
 
+  - name: player_country
+    description: One row per game and player with the country of the first day they were seen.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, player_id]
+
   - name: dim_games
     description: Games registry from dbt_project.yml.
     columns:
@@ -50,11 +57,11 @@ models:
             columns: [game_id, event_date, platform, country, ua_source]
 
   - name: kpi_active_users
-    description: DAU, WAU and MAU per game, date, platform, UA source.
+    description: DAU, WAU and MAU per game, date, platform, country, UA source.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [game_id, event_date, platform, ua_source]
+            columns: [game_id, event_date, platform, country, ua_source]
 
   - name: kpi_cohort
     description: Install cohorts by day since install (retention and LTV).
@@ -64,7 +71,7 @@ models:
             columns: [game_id, install_date, platform, country, ua_source, day_n]
 
   - name: kpi_levels
-    description: Level funnel and difficulty per game, date, platform, level.
+    description: Level funnel and difficulty per game, date, platform, country, UA source, level.
   - name: kpi_tutorial
     description: Tutorial funnel by install cohort.
   - name: kpi_churn_levels

@@ -32,6 +32,8 @@ const rangeQuery = z.object({
   to: isoDate.optional(),
   platform: z.enum(['all', 'android', 'ios']).default('all'),
   source: z.string().regex(/^[a-z0-9_]{1,40}$/, 'unknown UA source').default('all'),
+  // Country names as Firebase reports them ('United States', 'Côte d’Ivoire', 'Myanmar (Burma)').
+  country: z.string().regex(/^[\p{L}\p{M} .,'’&()-]{1,60}$/u, 'unknown country').default('all'),
 });
 const MAX_RANGE_DAYS = 400;
 
@@ -42,7 +44,7 @@ export function parseRange(query: unknown, now = new Date()): Range {
   const span = daysBetween(from, to);
   if (span < 0) throw new RangeError('from must be on or before to');
   if (span >= MAX_RANGE_DAYS) throw new RangeError(`range is limited to ${MAX_RANGE_DAYS} days`);
-  return { from, to, platform: q.platform, source: q.source };
+  return { from, to, platform: q.platform, source: q.source, country: q.country };
 }
 
 export function buildApp(opts: AppOptions): FastifyInstance {
@@ -80,6 +82,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
     api.get('/games', async (req) => filterGames(req.gameAccess ?? [], await opts.kpis.games()));
 
     api.get('/ua-sources', async (req) => opts.kpis.uaSources(req.gameAccess ?? []));
+
+    api.get('/countries', async (req) => opts.kpis.countries(req.gameAccess ?? []));
 
     api.get('/portfolio', async (req) => opts.kpis.portfolio(req.gameAccess ?? [], parseRange(req.query)));
 

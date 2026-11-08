@@ -1,10 +1,11 @@
--- Level funnel and difficulty per game, date, platform, UA source and level.
+-- Level funnel and difficulty per game, date, platform, country, UA source and level.
 -- Incremental: a day keeps the UA source players had when it was last rebuilt.
 {{
   config(
     materialized='incremental',
     incremental_strategy='insert_overwrite',
     partition_by={'field': 'event_date', 'data_type': 'date', 'granularity': 'day'},
+    on_schema_change='append_new_columns',
     cluster_by=['game_id']
   )
 }}
@@ -12,6 +13,7 @@ select
   e.game_id,
   e.event_date,
   coalesce(e.platform, 'unknown') as platform,
+  coalesce(pc.country, 'unknown') as country,
   coalesce(ua.ua_source, 'unknown') as ua_source,
   level_number,
   any_value(level_name) as level_name,
@@ -25,7 +27,8 @@ select
   sum(if(event_name = 'level_end', boosters_used, null)) as boosters_used
 from {{ ref('clean_events') }} as e
 left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+left join {{ ref('player_country') }} as pc using (game_id, player_id)
 where event_name in ('level_start', 'level_end')
   and level_number is not null
   and e.event_date >= {{ start_date_expr() }}
-group by 1, 2, 3, 4, 5
+group by 1, 2, 3, 4, 5, 6

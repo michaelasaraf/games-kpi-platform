@@ -26,6 +26,7 @@ describe('API on demo data', () => {
     for (const name of ['summary', 'daily', 'retention', 'levels', 'tutorial', 'economy', 'sources', 'platforms', 'integration']) {
       await get(`/api/games/demo_puzzle/${name}`);
       await get(`/api/games/demo_puzzle/${name}?platform=android&source=meta`);
+      await get(`/api/games/demo_puzzle/${name}?country=Germany`);
     }
     await get('/api/portfolio?source=organic');
   });
@@ -42,5 +43,18 @@ describe('API on demo data', () => {
     expect(meta.installs).toBeLessThan(all.installs);
     expect(meta.retention.d1.retention).toBeCloseTo(metaRow.d1.retention);
     expect(await get('/api/ua-sources')).toEqual(['google_ads', 'meta', 'organic']);
+  });
+
+  it('narrows every tab to one country and lists countries by players', async () => {
+    expect(await get('/api/countries')).toEqual(['United States', 'Brazil', 'Germany', 'India']);
+    const all = await get('/api/games/demo_puzzle/summary');
+    const de = await get('/api/games/demo_puzzle/summary?country=Germany');
+    expect(de.installs).toBeGreaterThan(0);
+    expect(de.installs).toBeLessThan(all.installs * 0.3);
+    const levels = await get('/api/games/demo_puzzle/levels?country=Germany');
+    const allLevels = await get('/api/games/demo_puzzle/levels');
+    expect(levels.levels[0].starts).toBeLessThan(allLevels.levels[0].starts * 0.3);
+    const none = await get('/api/games/demo_puzzle/summary?country=Peru');
+    expect(none.installs).toBe(0);
   });
 });

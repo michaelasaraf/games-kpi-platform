@@ -17,7 +17,7 @@ with cohort_players as (
 cohort_sizes as (
   select game_id, install_date, platform, country, ua_source, count(*) as cohort_size
   from cohort_players
-  group by 1, 2, 3, 4, 5, 6
+  group by 1, 2, 3, 4, 5
 ),
 
 activity as (

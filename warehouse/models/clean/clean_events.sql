@@ -25,6 +25,17 @@ with raw as (
     '{{ g.get("ad_revenue_source", "wrapper") }}' as ad_revenue_source,
     {{ g.get("store_fee", 0.15) }} as store_fee,
     starts_with(_TABLE_SUFFIX, 'intraday_') as from_intraday,
+    -- Games that predate the catalog can map their own params (see level_number_param and
+    -- tutorial_step_events in dbt_project.yml).
+    {%- set lnp = g.get("level_number_param", "level_number") %}
+    {% if lnp != "level_number" %}coalesce({{ param_int('level_number') }}, {{ param_int(lnp) }}){% else %}{{ param_int('level_number') }}{% endif %} as mapped_level_number,
+    {%- set tse = g.get("tutorial_step_events") %}
+    {%- if tse %}
+    (starts_with(event_name, '{{ tse.prefix }}')
+      {%- for e in tse.get("extra", []) %} or event_name = '{{ e }}'{% endfor %}) as is_game_tutorial_step,
+    {%- else %}
+    false as is_game_tutorial_step,
+    {%- endif %}
     event_name,
     event_timestamp,
     event_server_timestamp_offset,
@@ -93,14 +104,18 @@ flattened as (
     {{ param_str('attribution_provider') }} as attribution_provider,
     {{ param_str('media_source') }} as attribution_media_source,
     {{ param_str('campaign') }} as attribution_campaign,
+    -- firebase_campaign: Firebase's parse of the Play install referrer, logged right after first_open.
+    -- Unlike traffic_source it is also in the intraday tables.
+    {{ param_str('medium') }} as campaign_medium,
     {{ param_str('adset') }} as attribution_adset,
     {{ param_int('is_organic') }} as attribution_is_organic,
 
     -- progression
+    (event_name = 'tutorial_step' or is_game_tutorial_step) as is_tutorial_step,
     {{ param_int('step') }} as tutorial_step,
-    {{ param_str('step_name') }} as tutorial_step_name,
+    coalesce({{ param_str('step_name') }}, if(is_game_tutorial_step, event_name, null)) as tutorial_step_name,
     {{ param_str('level_name') }} as level_name,
-    {{ param_int('level_number') }} as level_number,
+    mapped_level_number as level_number,
     {{ param_int('success') }} as success,
     {{ param_int('duration_sec') }} as duration_sec,
     {{ param_int('attempt') }} as attempt,

@@ -14,10 +14,12 @@ select
   ls.game_id,
   ls.install_date,
   ls.platform,
+  coalesce(pc.country, 'unknown') as country,
   coalesce(ua.ua_source, 'unknown') as ua_source,
   coalesce(ls.max_level_reached, 0) as last_level_number,
   count(*) as churned_players
 from last_seen as ls
 left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+left join {{ ref('player_country') }} as pc using (game_id, player_id)
 where ls.last_active_date <= date_sub(current_date(), interval 3 day)
-group by 1, 2, 3, 4, 5
+group by 1, 2, 3, 4, 5, 6

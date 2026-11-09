@@ -96,25 +96,22 @@ function generate() {
             store_viewers: storeViewers, store_viewer_payers: Math.min(payers, Math.round(storeViewers * 0.09)),
             blocked_players: Math.round(dau * 0.2), blocker_hits: Math.round(dau * 0.35),
           });
-          if (country === COUNTRIES[0]![0]) {
-            // Active users are per platform and UA source, summed over countries.
-            const allCountries = dau / cShare;
-            tables.kpi_active_users!.push({
-              game_id: g.game_id, event_date: date, platform, ua_source,
-              dau: Math.round(allCountries), wau: Math.round(allCountries * 2.3), mau: Math.round(allCountries * 4.6),
-            });
-          }
+          tables.kpi_active_users!.push({
+            game_id: g.game_id, event_date: date, platform, country, ua_source,
+            dau, wau: Math.round(dau * 2.3), mau: Math.round(dau * 4.6),
+          });
         });
       }
 
-      for (const [ua_source, sShare] of SOURCES) days.forEach((date) => {
+      for (const [country, cShare] of COUNTRIES) for (const [ua_source, uShare] of SOURCES) days.forEach((date) => {
+        const sShare = uShare * cShare;
         let players = Math.round(g.installsPerDay * pShare * sShare * 3.5);
         for (let lvl = 1; lvl <= g.levels; lvl++) {
           const hard = lvl % 10 === 7;
           const win = hard ? 0.38 : 0.62 + rand() * 0.25;
           const starts = Math.round(players / win);
           tables.kpi_levels!.push({
-            game_id: g.game_id, event_date: date, platform, ua_source, level_number: lvl, level_name: `level_${lvl}`,
+            game_id: g.game_id, event_date: date, platform, country, ua_source, level_number: lvl, level_name: `level_${lvl}`,
             starts, completes: Math.round(starts * win), fails: Math.round(starts * (1 - win)),
             players_started: players, players_completed: Math.round(players * 0.92),
             complete_duration_sec: Math.round(starts * win * (60 + lvl * 4)), completes_with_duration: Math.round(starts * win),
@@ -130,21 +127,21 @@ function generate() {
           ];
           for (const [flow, reason, share] of flows) {
             tables.kpi_economy!.push({
-              game_id: g.game_id, event_date: date, platform, ua_source, currency_name: currency, flow, reason,
+              game_id: g.game_id, event_date: date, platform, country, ua_source, currency_name: currency, flow, reason,
               events: Math.round(dauish * share * 3), players: Math.round(dauish * share), amount: Math.round(dauish * scale * share * (0.9 + rand() * 0.2)),
             });
           }
         }
       });
 
-      for (const [ua_source, sShare] of SOURCES) days.forEach((installDate) => {
-        const size = Math.round(g.installsPerDay * pShare * sShare);
+      for (const [country, cShare] of COUNTRIES) for (const [ua_source, uShare] of SOURCES) days.forEach((installDate) => {
+        const size = Math.round(g.installsPerDay * pShare * uShare * cShare);
         [[0, 'Tutorial started', 0.97], [1, 'tap_to_match', 0.93], [2, 'first_combo', 0.88], [3, 'use_booster', 0.84], [9999, 'Tutorial completed', 0.8]].forEach(([step, name, share]) =>
-          tables.kpi_tutorial!.push({ game_id: g.game_id, install_date: installDate, platform, ua_source, step, step_name: name, players: Math.round(size * (share as number)) }),
+          tables.kpi_tutorial!.push({ game_id: g.game_id, install_date: installDate, platform, country, ua_source, step, step_name: name, players: Math.round(size * (share as number)) }),
         );
         for (let lvl = 0; lvl <= g.levels; lvl++) {
           const churned = Math.round(size * 0.6 * (lvl % 10 === 7 ? 0.08 : 0.02) * (lvl === 0 ? 3 : 1));
-          tables.kpi_churn_levels!.push({ game_id: g.game_id, install_date: installDate, platform, ua_source, last_level_number: lvl, churned_players: churned });
+          tables.kpi_churn_levels!.push({ game_id: g.game_id, install_date: installDate, platform, country, ua_source, last_level_number: lvl, churned_players: churned });
         }
       });
     }

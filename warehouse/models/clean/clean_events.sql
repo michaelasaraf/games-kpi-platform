@@ -16,8 +16,12 @@
   )
 }}
 
+{#- Games without analytics_dataset yet (export not linked) have no events: store revenue only. #}
+{%- set event_games = [] %}
+{%- for g in games() if g.get('firebase_project') and g.get('analytics_dataset') %}{% do event_games.append(g) %}{% endfor %}
+
 with raw as (
-  {%- for g in games() %}
+  {%- for g in event_games %}
   select
     '{{ g.game_id }}' as game_id,
     '{{ g.get("timezone", "UTC") }}' as tz,
@@ -28,19 +32,28 @@ with raw as (
     -- Games that predate the catalog can map their own params (see level_number_param and
     -- tutorial_step_events in dbt_project.yml).
     {%- set lnp = g.get("level_number_param", "level_number") %}
-    {% if lnp != "level_number" %}coalesce({{ param_int('level_number') }}, {{ param_int(lnp) }}){% else %}{{ param_int('level_number') }}{% endif %} as mapped_level_number,
+    {%- set lep = g.get("level_event_pattern") %}
+    coalesce({{ param_int('level_number') }}
+      {%- if lnp != "level_number" %}, {{ param_int(lnp) }}{% endif %}
+      {%- if lep %}, safe_cast(regexp_extract(event_name, r'{{ lep }}') as int64){% endif %}) as mapped_level_number,
+    -- Games that put the level in the event name (level_7_reached): those events count as level_up.
+    {% if lep %}regexp_contains(event_name, r'{{ lep }}'){% else %}false{% endif %} as is_game_level_up,
     {%- set tse = g.get("tutorial_step_events") %}
     {%- if tse %}
     (false
       {%- if tse.get("prefix") %} or starts_with(event_name, '{{ tse.prefix }}'){% endif %}
       {%- if tse.get("begin") %} or event_name = '{{ tse.begin }}'{% endif %}
-      {%- for e in tse.get("events", []) + tse.get("extra", []) %} or event_name = '{{ e }}'{% endfor %}) as is_game_tutorial_step,
-    -- Games whose step events carry a name but no number: the begin event is step 0 and the
-    -- step number is the name's position in step_order (from 1).
+      {%- for e in tse.get("events", []) + tse.get("extra", []) + tse.get("step_events", []) %} or event_name = '{{ e }}'{% endfor %}) as is_game_tutorial_step,
+    -- Games whose step events carry no number: the begin event is step 0, and the step number is
+    -- the position (from 1) of the step_name param in step_order, or of the event name in step_events.
     {%- set order = tse.get("step_order", []) %}
+    {%- set step_events = tse.get("step_events", []) %}
     {% if tse.get("begin") %}if(event_name = '{{ tse.begin }}', 0, {% endif -%}
     {% if order %}case {{ param_str('step_name') }}
-      {%- for n in order %} when '{{ n }}' then {{ loop.index }}{% endfor %} end{% else %}cast(null as int64){% endif -%}
+      {%- for n in order %} when '{{ n }}' then {{ loop.index }}{% endfor %} end
+    {%- elif step_events %}case event_name
+      {%- for n in step_events %} when '{{ n }}' then {{ loop.index }}{% endfor %} end
+    {%- else %}cast(null as int64){% endif -%}
     {% if tse.get("begin") %}){% endif %} as mapped_tutorial_step,
     {%- else %}
     false as is_game_tutorial_step,
@@ -126,6 +139,7 @@ flattened as (
     coalesce({{ param_str('step_name') }}, if(is_game_tutorial_step, event_name, null)) as tutorial_step_name,
     {{ param_str('level_name') }} as level_name,
     mapped_level_number as level_number,
+    is_game_level_up,
     {{ param_int('success') }} as success,
     {{ param_int('duration_sec') }} as duration_sec,
     {{ param_int('attempt') }} as attempt,

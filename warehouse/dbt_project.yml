@@ -33,7 +33,8 @@ vars:
   #   name               display name in the dashboard
   #   engine             unity | flutter
   #   firebase_project   Google Cloud project that holds the game's Firebase export
-  #   analytics_dataset  the export dataset, e.g. analytics_123456789
+  #   analytics_dataset  the export dataset, e.g. analytics_123456789 (leave out until it exists:
+  #                      the game then shows store revenue only)
   #   timezone           IANA timezone that defines the game's "day"
   #   package_name       store package id (com.studio.game); needed for play_reports and admob_api
   #   iap_source         wrapper (our iap_purchase event) | firebase_auto (Firebase in_app_purchase)
@@ -45,6 +46,10 @@ vars:
   #   level_number_param    optional: the param that holds the level number, if not level_number
   #   tutorial_step_events  optional: for games with their own tutorial events, which events count as
   #                         steps ({prefix: ftue_, extra: [...]}); the step number is read from `step`
+  #                         or, without one, from step_order (step_name param) or step_events (event names)
+  #   level_event_pattern   optional: regex for games that put the level in the event name
+  #                         (level_(\d+)_reached); matching events count as level_up
+  #   extra_package_names   optional: more AdMob / Play app ids for the same game, e.g. its iOS App Store id
   games:
     # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
     # Revenue comes from Google Play's sales reports and the AdMob API (Firebase has no revenue events for it).
@@ -90,3 +95,26 @@ vars:
           tapTradeNewHub, chooseLondon, chooseBetterTrade, openContracts, contracts_introduced,
           fleet_introduced, openMarket, second_vehicle_purchased, compareVehicles, vehicle_upgraded,
           idle_vehicle_sent, empireGrowing, hub_upgrade_started, speedUp, tutorial_completed]
+
+    # Business Empire: World Tycoon. Flutter, Android + iOS (same Firebase project), AdMob, Google Play /
+    # App Store IAP, Tenjin + Meta. On the App Store and in AdMob the iOS app is "Global Property Tycoon".
+    # Revenue comes from Google Play's sales reports and the AdMob API (Firebase has no revenue events for it).
+    - game_id: business_empire
+      name: "Business Empire: World Tycoon"
+      engine: flutter
+      firebase_project: global-properties-tycoon
+      analytics_dataset: analytics_539653015
+      timezone: UTC
+      package_name: com.michaelgames.global_assets_tycoon
+      extra_package_names: ["6804374009"]   # iOS App Store id (AdMob app ~6621130077)
+      iap_source: play_reports
+      ad_revenue_source: admob_api
+      store_fee: 0.15
+      d1_target: 0.40
+      d7_target: 0.15
+      # The game logs level_<n>_reached (lib/services/analytics_service.dart) and onboarding_* events.
+      level_event_pattern: '^level_(\d+)_reached$'
+      tutorial_step_events:
+        begin: onboarding_started
+        step_events: [onboarding_country_chosen, onboarding_first_property_purchased,
+          onboarding_first_rent_collected, onboarding_completed]

@@ -32,8 +32,9 @@ select
   countif(event_name = 'level_start') as level_starts,
   countif(event_name = 'level_end' and success = 1) as level_completes,
   countif(event_name = 'level_end' and coalesce(success, 0) = 0) as level_fails,
-  -- level_up: games that log only Firebase's level_up with the player's level.
-  max(if(event_name in ('level_start', 'level_end', 'level_up'), level_number, null)) as max_level_number,
+  -- level_up: games that log only Firebase's level_up with the player's level;
+  -- is_game_level_up: games with the level in the event name (level_event_pattern).
+  max(if(event_name in ('level_start', 'level_end', 'level_up') or is_game_level_up, level_number, null)) as max_level_number,
   max(if(event_name = 'level_end' and success = 1, level_number, null)) as max_level_completed,
 
   countif(ad_revenue_usd is not null) as ad_impressions,

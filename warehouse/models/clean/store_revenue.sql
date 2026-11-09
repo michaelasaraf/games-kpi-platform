@@ -2,7 +2,7 @@
   Store revenue per game, day, platform, country, type (iap | ad), ad format, ad source and product,
   from Google Play's sales reports and AdMob's mediation report (scripts/load_revenue.py). Only
   games whose config says iap_source: play_reports or ad_revenue_source: admob_api are included,
-  matched by package_name.
+  matched by package_name (and extra_package_names, e.g. the game's iOS App Store id in AdMob).
 
   Play days are in the game's timezone. AdMob days are in the AdMob account's time zone (the API
   reports whole days only).
@@ -18,9 +18,12 @@
 
 with play_games as (
   {%- for g in play_games %}
-  select '{{ g.game_id }}' as game_id, '{{ g.package_name }}' as package_name,
+  {%- set outer = loop %}
+  {%- for p in [g.package_name] + g.get("extra_package_names", []) %}
+  select '{{ g.game_id }}' as game_id, '{{ p }}' as package_name,
     '{{ g.get("timezone", "UTC") }}' as tz, cast({{ g.get("store_fee", 0.15) }} as float64) as store_fee
-  {% if not loop.last %}union all{% endif %}
+  {% if not (outer.last and loop.last) %}union all{% endif %}
+  {%- endfor %}
   {%- else %}
   select cast(null as string) as game_id, cast(null as string) as package_name, 'UTC' as tz, 0.0 as store_fee
   from unnest([1]) where false
@@ -29,8 +32,11 @@ with play_games as (
 
 admob_games as (
   {%- for g in admob_games %}
-  select '{{ g.game_id }}' as game_id, '{{ g.package_name }}' as package_name
-  {% if not loop.last %}union all{% endif %}
+  {%- set outer = loop %}
+  {%- for p in [g.package_name] + g.get("extra_package_names", []) %}
+  select '{{ g.game_id }}' as game_id, '{{ p }}' as package_name
+  {% if not (outer.last and loop.last) %}union all{% endif %}
+  {%- endfor %}
   {%- else %}
   select cast(null as string) as game_id, cast(null as string) as package_name from unnest([1]) where false
   {%- endfor %}

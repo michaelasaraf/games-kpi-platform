@@ -342,6 +342,31 @@ export class KpiService {
     return rows.sort((a, b) => b.installs - a.installs);
   }
 
+  /**
+   * Side-by-side series for every game the user may see: retention curve (day N since install)
+   * and daily DAU, ARPDAU and playtime per DAU. Respects every filter.
+   */
+  async compare(gameIds: string[] | '*', r: Range) {
+    const games = await this.games();
+    const visible = gameIds === '*' ? games : games.filter((g) => gameIds.includes(g.game_id));
+    const rows = await Promise.all(
+      visible.map(async (g) => {
+        const [daily, retention] = await Promise.all([this.daily(g.game_id, r), this.retention(g.game_id, r)]);
+        return {
+          game_id: g.game_id,
+          name: g.name,
+          retention: retention.curve
+            .filter((c) => c.day > 0 && c.day <= 30)
+            .map((c) => ({ day: c.day, players: c.players, retention: c.retention, reliable: c.players >= MIN_RELIABLE_COHORT })),
+          daily: daily
+            .filter((d) => d.avg_dau != null && d.avg_dau > 0)
+            .map((d) => ({ date: d.date, dau: d.avg_dau, arpdau: d.arpdau, playtime_min_per_dau: d.playtime_min_per_dau })),
+        };
+      }),
+    );
+    return { last_complete_date: lastCompleteDate(this.now()), games: rows };
+  }
+
   /** One row per game the user may see, for the portfolio page. */
   async portfolio(gameIds: string[] | '*', r: Range) {
     const games = await this.games();

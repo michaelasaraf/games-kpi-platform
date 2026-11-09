@@ -29,6 +29,7 @@ describe('API on demo data', () => {
       await get(`/api/games/demo_puzzle/${name}?country=Germany`);
     }
     await get('/api/portfolio?source=organic');
+    await get('/api/compare?platform=android&source=meta&country=Germany');
   });
 
   it('splits installs by UA source and the filter narrows to one', async () => {

@@ -87,6 +87,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
     api.get('/portfolio', async (req) => opts.kpis.portfolio(req.gameAccess ?? [], parseRange(req.query)));
 
+    api.get('/compare', async (req) => opts.kpis.compare(req.gameAccess ?? [], parseRange(req.query)));
+
     const perGame: Record<string, (gameId: string, req: FastifyRequest) => Promise<unknown>> = {
       summary: (g, req) => opts.kpis.summary(g, parseRange(req.query)),
       daily: (g, req) => opts.kpis.daily(g, parseRange(req.query)),

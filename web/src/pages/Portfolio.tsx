@@ -1,6 +1,7 @@
 import type { DayStat, Filters } from '../api';
 import { Loadable, useApi, vsTarget } from '../components/ui';
 import { fmt } from '../format';
+import { Compare, gameColor } from './Compare';
 
 interface Row {
   game_id: string;
@@ -30,6 +31,7 @@ function Ret({ stat, target }: { stat: Row['d1']; target: number }) {
 export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (gameId: string) => void }) {
   const state = useApi<Row[]>('/portfolio', filters);
   return (
+    <>
     <div className="card">
       <h2>All games</h2>
       <p className="sub">Dots compare retention with each game's target; grey values come from fewer than 1,000 installs.</p>
@@ -44,9 +46,9 @@ export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (game
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {rows.map((r, i) => (
                   <tr key={r.game_id}>
-                    <td><button className="link-button" onClick={() => onOpen(r.game_id)}>{r.name}</button> <span className="muted">{r.engine}</span></td>
+                    <td><span className="swatch" style={{ background: `var(${gameColor(i)})` }} aria-hidden="true" /><button className="link-button" onClick={() => onOpen(r.game_id)}>{r.name}</button> <span className="muted">{r.engine}</span></td>
                     <td>{fmt.int(r.avg_dau)}</td>
                     <td>{fmt.int(r.installs)}</td>
                     <td><Ret stat={r.d1} target={r.targets.d1} /></td>
@@ -63,5 +65,7 @@ export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (game
         )}
       </Loadable>
     </div>
+    <Compare filters={filters} />
+    </>
   );
 }

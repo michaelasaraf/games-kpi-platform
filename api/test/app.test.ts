@@ -180,6 +180,17 @@ describe('API', () => {
     const res = await app.inject({ url: '/api/portfolio', headers: { authorization: 'Bearer boss@studio.com' } });
     expect(res.json().map((g: { game_id: string }) => g.game_id)).toEqual(['gems_crafter', 'storm_bloom']);
   });
+
+  it('compares only the games the user may see', async () => {
+    const admin = await app.inject({ url: '/api/compare', headers: { authorization: 'Bearer boss@studio.com' } });
+    const body = admin.json();
+    expect(body.games.map((g: { game_id: string }) => g.game_id)).toEqual(['gems_crafter', 'storm_bloom']);
+    const d1 = body.games[0].retention.find((c: { day: number }) => c.day === 1);
+    expect(d1.retention).toBeCloseTo(0.4);
+    expect(body.games[0].retention.every((c: { day: number }) => c.day >= 1 && c.day <= 30)).toBe(true);
+    const pm = await app.inject({ url: '/api/compare', headers: { authorization: 'Bearer pm@studio.com' } });
+    expect(pm.json().games.map((g: { game_id: string }) => g.game_id)).toEqual(['gems_crafter']);
+  });
 });
 
 describe('CachedWarehouse', () => {

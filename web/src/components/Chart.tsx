@@ -83,7 +83,8 @@ export function Chart({ x, series, format, height = 260, target, xName, numericX
             name: s.name,
             type: s.kind ?? 'line',
             data: numericX ? s.values.map((v, j) => [x[j], v]) : s.values,
-            showSymbol: false,
+            // Sparse series (a new game, a short range) need dots, or a lone point is invisible.
+            showSymbol: s.values.filter((v) => v != null).length <= 8,
             symbolSize: 8,
             connectNulls: false,
             lineStyle: { width: 2 },

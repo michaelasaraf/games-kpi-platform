@@ -14,6 +14,9 @@
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
+  --series-4: #8a5cd6;
+  --series-5: #c98a00;
+  --series-6: #d6457e;
   --good: #0ca30c;
   --good-text: #006300;
   --warning: #fab219;
@@ -45,6 +48,9 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #9b72e3;
+    --series-5: #d6a024;
+    --series-6: #e2608f;
     --good-text: #0ca30c;
     --seq-0: #383835;
     --seq-1: #104281;
@@ -120,6 +126,8 @@ h2 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
 .badge.good { color: var(--good-text); }
 .badge.bad { color: var(--critical); }
 .badge.warn { color: var(--text-secondary); }
+h2.section-title { font-size: 16px; margin: 0 0 12px; }
+.swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 8px; vertical-align: middle; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .dot.good { background: var(--good); }
 .dot.bad { background: var(--critical); }

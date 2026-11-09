@@ -103,7 +103,7 @@ vars:
       name: "Business Empire: World Tycoon"
       engine: flutter
       firebase_project: global-properties-tycoon
-      # analytics_dataset: set once Firebase creates the export dataset. Until then only store revenue shows.
+      analytics_dataset: analytics_539653015
       timezone: UTC
       package_name: com.michaelgames.global_assets_tycoon
       extra_package_names: ["6804374009"]   # iOS App Store id (AdMob app ~6621130077)

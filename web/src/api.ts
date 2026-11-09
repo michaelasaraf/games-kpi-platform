@@ -58,6 +58,8 @@ export interface Filters {
   platform: 'all' | 'android' | 'ios';
   /** 'all' or a UA source id such as organic, meta, google_ads. */
   source: string;
+  /** 'all' or a country name such as 'United States'. */
+  country: string;
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -75,6 +77,11 @@ const SOURCE_LABELS: Record<string, string> = {
   snapchat: 'Snapchat',
   unknown: 'Unknown',
 };
+
+/** Display name of a country filter value. */
+export function countryLabel(c: string): string {
+  return c === 'unknown' ? 'Unknown country' : c;
+}
 
 /** Display name of a UA source id. */
 export function sourceLabel(id: string): string {

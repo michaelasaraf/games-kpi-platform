@@ -52,7 +52,7 @@ describe('access', () => {
 describe('parseRange', () => {
   const now = new Date('2026-11-09T12:00:00Z');
   it('defaults to the 30 days ending yesterday', () => {
-    expect(parseRange({}, now)).toEqual({ from: '2026-10-10', to: '2026-11-08', platform: 'all', source: 'all' });
+    expect(parseRange({}, now)).toEqual({ from: '2026-10-10', to: '2026-11-08', platform: 'all', source: 'all', country: 'all' });
   });
   it('rejects reversed and huge ranges', () => {
     expect(() => parseRange({ from: '2026-11-08', to: '2026-11-01' }, now)).toThrow();
@@ -122,6 +122,25 @@ describe('API', () => {
     expect(res.statusCode).toBe(200);
     expect(wh.calls.every((c) => c.params.source === 'meta')).toBe(true);
     expect(wh.calls.some((c) => c.sql.includes('meta'))).toBe(false);
+  });
+
+  it('passes the country filter as a param', async () => {
+    wh.calls = [];
+    const res = await app.inject({
+      url: `/api/games/gems_crafter/summary?country=${encodeURIComponent('Côte d’Ivoire')}`,
+      headers: { authorization: 'Bearer pm@studio.com' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(wh.calls.every((c) => c.params.country === 'Côte d’Ivoire')).toBe(true);
+    expect(wh.calls.some((c) => c.sql.includes('Ivoire'))).toBe(false);
+  });
+
+  it('rejects countries with characters no country name has', async () => {
+    const res = await app.inject({
+      url: '/api/games/gems_crafter/summary?country=x%3B%20DROP',
+      headers: { authorization: 'Bearer pm@studio.com' },
+    });
+    expect(res.statusCode).toBe(400);
   });
 
   it('rejects UA sources that are not identifiers', async () => {

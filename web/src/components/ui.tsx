@@ -7,13 +7,13 @@ export function useApi<T>(path: string | null, filters?: Filters) {
     error: null,
     loading: true,
   });
-  const key = path ? `${path}|${filters?.from}|${filters?.to}|${filters?.platform}|${filters?.source}` : null;
+  const key = path ? `${path}|${filters?.from}|${filters?.to}|${filters?.platform}|${filters?.source}|${filters?.country}` : null;
 
   useEffect(() => {
     if (!path) return;
     let cancelled = false;
     setState((s) => ({ ...s, loading: true, error: null }));
-    api<T>(path, filters ? { from: filters.from, to: filters.to, platform: filters.platform, source: filters.source } : undefined)
+    api<T>(path, filters ? { from: filters.from, to: filters.to, platform: filters.platform, source: filters.source, country: filters.country } : undefined)
       .then((data) => !cancelled && setState({ data, error: null, loading: false }))
       .catch((e: Error) => !cancelled && setState({ data: null, error: e.message, loading: false }));
     return () => {

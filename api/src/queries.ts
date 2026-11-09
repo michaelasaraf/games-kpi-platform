@@ -20,10 +20,13 @@ export interface Range {
   platform: string;
   /** 'all' or a UA source such as 'organic', 'meta', 'google_ads'. */
   source: string;
+  /** 'all' or a country name as Firebase reports it, such as 'United States'. */
+  country: string;
 }
 
-/** Platform and UA source filters; every KPI table has both columns. */
-const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform) AND (@source = 'all' OR ua_source = @source)`;
+/** Platform, country and UA source filters; every KPI table has all three columns. */
+const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform) AND (@source = 'all' OR ua_source = @source)
+  AND (@country = 'all' OR country = @country)`;
 
 const SUM_TOTALS = `
   SUM(dau) AS dau, SUM(new_players) AS new_players, SUM(sessions) AS sessions,
@@ -66,7 +69,7 @@ export class KpiService {
   }
 
   private params(gameId: string, r: Range) {
-    return { game: gameId, from: r.from, to: r.to, platform: r.platform, source: r.source };
+    return { game: gameId, from: r.from, to: r.to, platform: r.platform, source: r.source, country: r.country };
   }
 
   /**
@@ -272,6 +275,23 @@ export class KpiService {
     );
     const visible = rows.filter((r) => gameIds === '*' || gameIds.includes(r.game_id));
     return [...new Set(visible.map((r) => r.ua_source))].sort();
+  }
+
+  /**
+   * Countries seen in the games the user may see, for the filter: most players first,
+   * then countries that only have store revenue, with 'unknown' last.
+   */
+  async countries(gameIds: string[] | '*') {
+    const rows = await this.wh.query<{ game_id: string; country: string; players: number }>(
+      `SELECT game_id, country, SUM(dau) AS players FROM {{dataset}}.kpi_daily GROUP BY game_id, country`,
+    );
+    const players = new Map<string, number>();
+    for (const r of rows) {
+      if (gameIds !== '*' && !gameIds.includes(r.game_id)) continue;
+      players.set(r.country, (players.get(r.country) ?? 0) + Number(r.players ?? 0));
+    }
+    const rank = (c: string) => (c === 'unknown' ? -1 : players.get(c)!);
+    return [...players.keys()].sort((a, b) => rank(b) - rank(a) || a.localeCompare(b));
   }
 
   /**

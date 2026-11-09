@@ -16,9 +16,11 @@ with steps as (
 ),
 cohort_platform as (
   select pd.game_id, pd.player_id, any_value(coalesce(pd.platform, 'unknown')) as platform,
+    any_value(coalesce(pc.country, 'unknown')) as country,
     any_value(coalesce(ua.ua_source, 'unknown')) as ua_source
   from {{ ref('player_day') }} as pd
   left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+  left join {{ ref('player_country') }} as pc using (game_id, player_id)
   where pd.days_since_install = 0
   group by 1, 2
 )
@@ -26,6 +28,7 @@ select
   s.game_id,
   s.install_date,
   c.platform,
+  c.country,
   c.ua_source,
   s.step,
   any_value(s.step_name) as step_name,
@@ -33,4 +36,4 @@ select
 from steps as s
 join cohort_platform as c using (game_id, player_id)
 where s.step is not null
-group by 1, 2, 3, 4, 5
+group by 1, 2, 3, 4, 5, 6

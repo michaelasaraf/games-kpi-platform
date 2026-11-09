@@ -72,7 +72,7 @@ with raw as (
     traffic_source.medium as fb_medium,
     traffic_source.name as fb_campaign,
     app_info.version as app_version,
-    geo.country as country
+    nullif(nullif(geo.country, ''), '(not set)') as country
   from `{{ g.firebase_project }}.{{ g.analytics_dataset }}.events_*`
   where (_TABLE_SUFFIX between {{ start_suffix() }} and '99999999')
      or (_TABLE_SUFFIX between concat('intraday_', {{ start_suffix() }}) and 'intraday_99999999')

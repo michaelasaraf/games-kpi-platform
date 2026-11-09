@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { api, getToken, setToken, sourceLabel, type Filters, type Game } from './api';
+import { api, countryLabel, getToken, setToken, sourceLabel, type Filters, type Game } from './api';
 import { Loadable, useApi } from './components/ui';
 import { daysBefore, yesterday } from './format';
 import { Economy } from './pages/Economy';
@@ -54,6 +54,7 @@ function readView(): View {
     from: p.get('from') ?? daysBefore(to, 29),
     platform: platform === 'android' || platform === 'ios' ? platform : 'all',
     source: /^[a-z0-9_]{1,40}$/.test(p.get('source') ?? '') ? p.get('source')! : 'all',
+    country: /^[\p{L}\p{M} .,'’&()-]{1,60}$/u.test(p.get('country') ?? '') ? p.get('country')! : 'all',
   };
 }
 
@@ -65,6 +66,7 @@ function writeView(v: View) {
   p.set('to', v.to);
   p.set('platform', v.platform);
   if (v.source !== 'all') p.set('source', v.source);
+  if (v.country !== 'all') p.set('country', v.country);
   window.history.replaceState(null, '', `#${p}`);
 }
 
@@ -141,12 +143,13 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
   const me = useApi<{ user: { email: string } }>('/me');
   const games = useApi<Game[]>('/games');
   const uaSources = useApi<string[]>('/ua-sources');
+  const countries = useApi<string[]>('/countries');
 
   useEffect(() => {
     if (me.error?.toLowerCase().includes('sign in')) onSignOut();
   }, [me.error, onSignOut]);
 
-  const filters: Filters = { from: view.from, to: view.to, platform: view.platform, source: view.source };
+  const filters: Filters = { from: view.from, to: view.to, platform: view.platform, source: view.source, country: view.country };
   const span = Math.round((Date.parse(view.to) - Date.parse(view.from)) / 86_400_000) + 1;
 
   return (
@@ -190,6 +193,12 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                   <option value="all">All UA sources</option>
                   {[...new Set([...(uaSources.data ?? []), ...(view.source === 'all' ? [] : [view.source])])].map((s) => (
                     <option key={s} value={s}>{sourceLabel(s)}</option>
+                  ))}
+                </select>
+                <select className="control" aria-label="Country" value={view.country} onChange={(e) => update({ country: e.target.value })}>
+                  <option value="all">All countries</option>
+                  {[...new Set([...(countries.data ?? []), ...(view.country === 'all' ? [] : [view.country])])].map((c) => (
+                    <option key={c} value={c}>{countryLabel(c)}</option>
                   ))}
                 </select>
               </div>

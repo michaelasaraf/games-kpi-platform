@@ -10,6 +10,9 @@ seed-paths: ["seeds"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
+flags:
+  send_anonymous_usage_stats: false
+
 models:
   games_kpi:
     +materialized: table

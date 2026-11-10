@@ -2,6 +2,12 @@
 -- over any filter and divides (for example ARPDAU = (ad + IAP net revenue) / DAU).
 -- Games on store revenue (play_reports, admob_api) get extra rows from store_revenue with
 -- ua_source 'unattributed' and no players: the stores report totals, not players.
+-- Days before a game's BigQuery export come from history_daily (GA4 totals, or Play installs)
+-- with ua_source 'unknown'; on days GA4 covers, they replace the export's partial first day.
+with ga4_days as (
+  select distinct game_id, event_date from {{ ref('history_daily') }} where source = 'ga4'
+)
+
 select
   pd.game_id,
   pd.event_date,
@@ -36,7 +42,46 @@ select
   sum(blocker_hits) as blocker_hits
 from {{ ref('player_day') }} as pd
 left join {{ ref('player_attribution') }} as ua using (game_id, player_id)
+left join ga4_days as h on h.game_id = pd.game_id and h.event_date = pd.event_date
+where h.game_id is null
 group by 1, 2, 3, 4, 5
+
+union all
+
+select
+  game_id,
+  event_date,
+  platform,
+  country,
+  'unknown' as ua_source,
+  sum(dau) as dau,
+  sum(new_players) as new_players,
+  sum(sessions) as sessions,
+  sum(playtime_sec) as playtime_sec,
+  0 as level_starts,
+  0 as level_completes,
+  0 as level_fails,
+  0 as ad_impressions,
+  0 as rewarded_impressions,
+  0 as interstitial_impressions,
+  0 as banner_impressions,
+  0 as rewarded_viewers,
+  0 as ad_revenue_usd,
+  0 as rewarded_revenue_usd,
+  0 as interstitial_revenue_usd,
+  0 as banner_revenue_usd,
+  0 as ad_offers_shown,
+  0 as ad_offers_accepted,
+  0 as purchases,
+  0 as payers,
+  0 as iap_revenue_gross_usd,
+  0 as iap_revenue_net_usd,
+  0 as store_viewers,
+  0 as store_viewer_payers,
+  0 as blocked_players,
+  0 as blocker_hits
+from {{ ref('history_daily') }}
+group by 1, 2, 3, 4
 
 union all
 

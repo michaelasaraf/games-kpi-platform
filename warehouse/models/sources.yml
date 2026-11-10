@@ -9,3 +9,8 @@ sources:
         description: Google Play estimated sales report rows (one per order or refund), USD-converted.
       - name: src_admob_daily
         description: AdMob mediation report per day, app, country, format, platform and ad source (USD).
+      # Written by scripts/load_history.py: daily totals from before a game's BigQuery export.
+      - name: src_ga4_daily
+        description: GA4 Data API daily active/new users, sessions and engagement per property, platform and country.
+      - name: src_play_installs
+        description: Google Play install statistics per day, package and country (stats/installs/*_country.csv).

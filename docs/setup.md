@@ -198,6 +198,25 @@ every mediated ad source. AdMob days follow the AdMob account's time zone.
 
 If a source fails, the job logs `load_revenue` with the error, and the build keeps the last good load.
 
+## 8. History from before the BigQuery export
+
+The export only holds events from the day it was linked. `warehouse/scripts/load_history.py`
+(run by `run.sh` before dbt) fills the earlier days with daily totals, which `history_daily`
+shows in `kpi_daily` and `kpi_active_users` with UA source "unknown":
+
+- **GA4 (Firebase Analytics):** DAU, 7/28-day active users, new players, sessions and playtime per
+  day, platform and country, from the game's GA4 property (the number in `analytics_dataset`, or
+  set `ga4_property_id`). Setup, once: enable the
+  [Google Analytics Data API](https://console.cloud.google.com/apis/library/analyticsdata.googleapis.com)
+  in the platform project, then in each game's Firebase console open Analytics > Admin >
+  Property access management and add the `kpi-models` service account as a **Viewer**. GA4 also
+  replaces the export's first day, which only holds part of that day.
+- **Google Play install statistics:** daily user installs per country (Android) from the reports
+  bucket (`PLAY_REPORTS_BUCKET`), used as new players on pre-export days GA4 has no data for.
+
+Retention, levels, tutorial, economy and UA source need each player's events, so they still start
+on the export's first day.
+
 ## Troubleshooting
 
 | Symptom | Likely cause |

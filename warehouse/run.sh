@@ -14,5 +14,7 @@ cd "$(dirname "$0")"
 python scripts/write_keyfile.py "$GCP_KEYFILE"
 # Store revenue (Google Play, AdMob). A failure is logged and the build still runs on the last good load.
 timeout 20m python scripts/load_revenue.py || echo "load_revenue failed: building with the last good revenue load"
+# Daily totals from before each game's BigQuery export (GA4 Data API, Play install stats). Same rule.
+timeout 10m python scripts/load_history.py || echo "load_history failed: building with the last good history load"
 # Hard stop well before the next hourly run, so one stuck run can never block the schedule.
 exec timeout --kill-after=1m 40m dbt build --profiles-dir . "$@"

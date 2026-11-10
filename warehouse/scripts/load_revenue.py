@@ -176,7 +176,8 @@ def parse_sales_report(month: str, blob_bytes: bytes, fx: Fx, now: str) -> list[
             "charged_ts": charged.isoformat(),
             "financial_status": status,
             "product_type": (r.get("Product Type") or "").strip(),
-            "package_name": (r.get("Product ID") or "").strip(),
+            # Play renamed "Product ID" to "Package ID" in newer reports.
+            "package_name": (r.get("Package ID") or r.get("Product ID") or "").strip(),
             "sku_id": (r.get("SKU ID") or "").strip(),
             "product_title": (r.get("Product Title") or "").strip(),
             "currency": currency,
@@ -207,8 +208,10 @@ def load_play(bq: bigquery.Client, creds, dataset: str, bucket_uri: str) -> None
         log(f"play: no sales/salesreport_*.zip in gs://{bucket_name} yet")
         return
     loaded = [r.m for r in bq.query(f"select max(report_month) as m from `{table_id}`").result()][0]
+    # Months loaded before the "Package ID" column fix have rows with no package: re-read them.
+    broken = {r.m for r in bq.query(f"select distinct report_month as m from `{table_id}` where package_name = ''").result()}
     # Re-read the last loaded month (Play keeps updating it) and everything after it.
-    months = sorted(m for m in blobs if loaded is None or m >= loaded)
+    months = sorted(m for m in blobs if loaded is None or m >= loaded or m in broken)
     fx = Fx()
     now = dt.datetime.now(dt.timezone.utc).isoformat()
     for month in months:

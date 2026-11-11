@@ -198,7 +198,33 @@ every mediated ad source. AdMob days follow the AdMob account's time zone.
 
 If a source fails, the job logs `load_revenue` with the error, and the build keeps the last good load.
 
-## 8. History from before the BigQuery export
+## 8. UA spend from Meta Ads
+
+Before each build, `scripts/load_ua_costs.py` loads daily Meta (Facebook) Ads spend per ad account,
+ad set and country into `src_meta_ads_daily`, and dbt builds `kpi_ua_spend` (spend, impressions, clicks
+and Meta-reported installs per game, day, platform, country and campaign). It is the base for CPI and ROAS.
+
+1. In Meta Business Settings (business.facebook.com/settings) → Users → **System users**, add a system user
+   (for example `kpi-models`, role Employee).
+2. Click it → **Assign assets** → Ad accounts → pick every ad account that runs game campaigns, with
+   **View performance**.
+3. If the business has no app of its own yet: developers.facebook.com/apps → Create app → type **Business**,
+   connected to the same business portfolio. In Business Settings → Apps, assign it to the system user.
+4. Back on the system user → **Generate new token** → choose the app, expiration **Never**, permission
+   **ads_read**. Copy the token.
+5. Set `META_ACCESS_TOKEN` to the token and `META_AD_ACCOUNT_IDS` to the ad account ids (the `act=` number
+   in the Ads Manager address, comma separated) on the `kpi-models` service.
+
+Spend is matched to a game by the app the ad set promotes (the store link of an app install campaign),
+against the game's `package_name` and `extra_package_names`; that link also gives the platform. For ad sets
+with no store link, add the game's `meta_app_ids` or a `meta_campaign_regex` in `dbt_project.yml`.
+Spend in another currency is converted to USD at that day's rate. Days follow the ad account's time zone.
+
+The first run loads the last 365 days, and later runs reload the last 7, because Meta keeps adding
+installs to a day. If the load fails, the job logs `load_ua_costs` with the error and the build keeps
+the last good load.
+
+## 9. History from before the BigQuery export
 
 The export only holds events from the day it was linked. `warehouse/scripts/load_history.py`
 (run by `run.sh` before dbt) fills the earlier days with daily totals, which `history_daily`

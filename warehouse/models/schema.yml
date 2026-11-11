@@ -56,6 +56,13 @@ models:
           arguments:
             columns: [game_id, event_date, platform, country, ua_source]
 
+  - name: kpi_ua_spend
+    description: UA spend (Meta Ads) per game, date, platform, country, channel and campaign.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, spend_date, platform, country, channel, campaign_id]
+
   - name: kpi_active_users
     description: DAU, WAU and MAU per game, date, platform, country, UA source.
     data_tests:

@@ -50,6 +50,9 @@ vars:
   #   level_event_pattern   optional: regex for games that put the level in the event name
   #                         (level_(\d+)_reached); matching events count as level_up
   #   extra_package_names   optional: more AdMob / Play app ids for the same game, e.g. its iOS App Store id
+  #   meta_app_ids          optional: Meta (Facebook) app ids of the game, for Meta Ads spend whose ad sets
+  #                         have no store link (spend is matched by package_name / extra_package_names first)
+  #   meta_campaign_regex   optional: regex on Meta campaign names, for campaigns that promote no app
   games:
     # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
     # Revenue comes from Google Play's sales reports and the AdMob API (Firebase has no revenue events for it).

@@ -414,32 +414,37 @@ export class KpiService {
   }
 
   /**
-   * Income (ads, IAP net) and UA spend per game the user may see, plus a total row.
+   * Income (ads, IAP net) and UA spend per game the user may see, a total row, and the same
+   * totals per day (all visible games together), newest day first.
    * Uses the date, platform and country filters, not the UA source filter.
    */
   async profit(gameIds: string[] | '*', r: Range) {
     const [games, income, spend] = await Promise.all([
       this.games(),
-      this.wh.query<Record<string, unknown> & { game_id: string }>(
-        `SELECT game_id, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
-         WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id`,
+      this.wh.query<Record<string, unknown> & { game_id: string; day: string }>(
+        `SELECT game_id, event_date AS day, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
+         WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id, event_date`,
         this.geoParams(r),
       ),
-      this.wh.query<Record<string, unknown> & { game_id: string }>(
-        `SELECT game_id, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
-         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id`,
+      this.wh.query<Record<string, unknown> & { game_id: string; day: string }>(
+        `SELECT game_id, spend_date AS day, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id, spend_date`,
         this.geoParams(r),
       ),
     ]);
     const visible = gameIds === '*' ? games : games.filter((g) => gameIds.includes(g.game_id));
+    const ids = new Set(visible.map((g) => g.game_id));
+    const rows = [...income, ...spend].filter((x) => ids.has(x.game_id));
     const inputs = visible.map((g) => ({
       game_id: g.game_id,
       name: g.name,
-      input: sumPnl([...income.filter((x) => x.game_id === g.game_id), ...spend.filter((x) => x.game_id === g.game_id)]),
+      input: sumPnl(rows.filter((x) => x.game_id === g.game_id)),
     }));
+    const days = [...new Set(rows.map((x) => String(x.day)))].sort().reverse();
     return {
       games: inputs.map((g) => ({ game_id: g.game_id, name: g.name, ...pnl(g.input) })),
       total: pnl(sumPnl(inputs.map((g) => g.input))),
+      daily: days.map((d) => ({ date: d, ...pnl(sumPnl(rows.filter((x) => String(x.day) === d))) })),
     };
   }
 

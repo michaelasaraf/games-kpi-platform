@@ -9,7 +9,7 @@ export const UA_NOTE =
 
 /** Profit in green or red, so a loss is visible at a glance. */
 export function Money({ v, digits = 0 }: { v: number | null | undefined; digits?: number }) {
-  return <span className={v != null && v < 0 ? 'neg' : undefined}>{fmt.usd(v, digits)}</span>;
+  return <span className={v == null ? undefined : v < 0 ? 'neg' : v > 0 ? 'pos' : undefined}>{fmt.usd(v, digits)}</span>;
 }
 
 export function Roas({ v }: { v: number | null | undefined }) {

@@ -23,12 +23,13 @@ describe('API on demo data', () => {
   }, 120_000);
 
   it('answers every per-game endpoint, with and without filters', async () => {
-    for (const name of ['summary', 'daily', 'retention', 'levels', 'tutorial', 'economy', 'sources', 'platforms', 'integration']) {
+    for (const name of ['summary', 'daily', 'retention', 'levels', 'tutorial', 'economy', 'sources', 'platforms', 'integration', 'ua']) {
       await get(`/api/games/demo_puzzle/${name}`);
       await get(`/api/games/demo_puzzle/${name}?platform=android&source=meta`);
       await get(`/api/games/demo_puzzle/${name}?country=Germany`);
     }
     await get('/api/portfolio?source=organic');
+    await get('/api/profit?platform=android&country=Germany');
     await get('/api/compare?platform=android&source=meta&country=Germany');
   });
 
@@ -57,5 +58,29 @@ describe('API on demo data', () => {
     expect(levels.levels[0].starts).toBeLessThan(allLevels.levels[0].starts * 0.3);
     const none = await get('/api/games/demo_puzzle/summary?country=Peru');
     expect(none.installs).toBe(0);
+  });
+
+  it('puts income next to UA spend, per game and in total', async () => {
+    const profit = await get('/api/profit');
+    expect(profit.games.length).toBeGreaterThan(0);
+    const sum = (k: string) => profit.games.reduce((t: number, g: Record<string, number>) => t + g[k]!, 0);
+    for (const k of ['ad_revenue_usd', 'iap_revenue_net_usd', 'income_usd', 'spend_usd']) expect(profit.total[k]).toBeCloseTo(sum(k));
+    const g = profit.games[0];
+    expect(g.spend_usd).toBeGreaterThan(0);
+    expect(g.income_usd).toBeCloseTo(g.ad_revenue_usd + g.iap_revenue_net_usd);
+    expect(g.profit_usd).toBeCloseTo(g.income_usd - g.spend_usd);
+    expect(g.roas).toBeCloseTo(g.income_usd / g.spend_usd);
+
+    const ua = await get(`/api/games/${g.game_id}/ua`);
+    expect(ua.total.spend_usd).toBeCloseTo(g.spend_usd);
+    expect(ua.total.income_usd).toBeCloseTo(g.income_usd);
+    expect(ua.campaigns.reduce((t: number, c: { spend_usd: number }) => t + c.spend_usd, 0)).toBeCloseTo(g.spend_usd);
+    expect(ua.daily.reduce((t: number, d: { spend_usd: number }) => t + d.spend_usd, 0)).toBeCloseTo(g.spend_usd);
+    expect(ua.total.cpi).toBeGreaterThan(0);
+    // The UA source filter does not apply: store revenue has no UA source.
+    const filtered = await get(`/api/games/${g.game_id}/ua?source=organic`);
+    expect(filtered.total.spend_usd).toBeCloseTo(g.spend_usd);
+    const de = await get(`/api/games/${g.game_id}/ua?country=Germany`);
+    expect(de.countries.map((c: { country: string }) => c.country)).toEqual(['Germany']);
   });
 });

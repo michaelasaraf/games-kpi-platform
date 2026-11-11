@@ -5,6 +5,9 @@ import {
   integrationChecklist,
   levelFunnel,
   MIN_RELIABLE_COHORT,
+  pnl,
+  sumPnl,
+  type PnlInput,
   toTotals,
   daysBetween,
   type CohortRow,
@@ -27,6 +30,20 @@ export interface Range {
 /** Platform, country and UA source filters; every KPI table has all three columns. */
 const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform) AND (@source = 'all' OR ua_source = @source)
   AND (@country = 'all' OR country = @country)`;
+
+/**
+ * Platform and country only: income vs UA spend ignores the UA source filter, because store
+ * revenue (Google Play, AdMob) has no player and so no UA source.
+ */
+const GEO_FILTER = `(@platform = 'all' OR platform = @platform) AND (@country = 'all' OR country = @country)`;
+
+/** Countries listed one by one on the UA tab; the rest share a row. */
+const TOP_COUNTRIES = 15;
+
+const SUM_INCOME = `SUM(ad_revenue_usd) AS ad_revenue_usd, SUM(iap_revenue_net_usd) AS iap_revenue_net_usd,
+  SUM(new_players) AS installs`;
+const SUM_SPEND = `SUM(spend_usd) AS spend_usd, SUM(network_installs) AS paid_installs,
+  SUM(impressions) AS impressions, SUM(clicks) AS clicks`;
 
 const SUM_TOTALS = `
   SUM(dau) AS dau, SUM(new_players) AS new_players, SUM(sessions) AS sessions,
@@ -390,5 +407,118 @@ export class KpiService {
         };
       }),
     );
+  }
+
+  private geoParams(r: Range, gameId?: string) {
+    return { from: r.from, to: r.to, platform: r.platform, country: r.country, ...(gameId ? { game: gameId } : {}) };
+  }
+
+  /**
+   * Income (ads, IAP net) and UA spend per game the user may see, plus a total row.
+   * Uses the date, platform and country filters, not the UA source filter.
+   */
+  async profit(gameIds: string[] | '*', r: Range) {
+    const [games, income, spend] = await Promise.all([
+      this.games(),
+      this.wh.query<Record<string, unknown> & { game_id: string }>(
+        `SELECT game_id, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
+         WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id`,
+        this.geoParams(r),
+      ),
+      this.wh.query<Record<string, unknown> & { game_id: string }>(
+        `SELECT game_id, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${GEO_FILTER} GROUP BY game_id`,
+        this.geoParams(r),
+      ),
+    ]);
+    const visible = gameIds === '*' ? games : games.filter((g) => gameIds.includes(g.game_id));
+    const inputs = visible.map((g) => ({
+      game_id: g.game_id,
+      name: g.name,
+      input: sumPnl([...income.filter((x) => x.game_id === g.game_id), ...spend.filter((x) => x.game_id === g.game_id)]),
+    }));
+    return {
+      games: inputs.map((g) => ({ game_id: g.game_id, name: g.name, ...pnl(g.input) })),
+      total: pnl(sumPnl(inputs.map((g) => g.input))),
+    };
+  }
+
+  /** UA for one game: totals, a daily series, and spend by campaign and by country. */
+  async ua(gameId: string, r: Range) {
+    const p = this.geoParams(r, gameId);
+    const where = `game_id = @game AND ${GEO_FILTER}`;
+    const [dailyIncome, dailySpend, campaigns, countryIncome, countrySpend] = await Promise.all([
+      this.wh.query<Record<string, unknown> & { day: string }>(
+        `SELECT event_date AS day, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
+         WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY event_date`, p),
+      this.wh.query<Record<string, unknown> & { day: string }>(
+        `SELECT spend_date AS day, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY spend_date`, p),
+      this.wh.query<Record<string, unknown> & { campaign_id: string; campaign_name: string; channel: string; platform: string; first_date: string; last_date: string }>(
+        `SELECT channel, campaign_id, MAX(campaign_name) AS campaign_name, platform, ${SUM_SPEND},
+                MIN(spend_date) AS first_date, MAX(spend_date) AS last_date
+         FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${where}
+         GROUP BY channel, campaign_id, platform ORDER BY spend_usd DESC`, p),
+      this.wh.query<Record<string, unknown> & { country: string }>(
+        `SELECT country, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
+         WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY country`, p),
+      this.wh.query<Record<string, unknown> & { country: string }>(
+        `SELECT country, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY country`, p),
+    ]);
+    const byKey = <T extends Record<string, unknown>>(rows: T[], key: keyof T) => {
+      const m = new Map<string, T[]>();
+      for (const row of rows) {
+        const k = String(row[key]);
+        m.set(k, [...(m.get(k) ?? []), row]);
+      }
+      return m;
+    };
+    const incomeDays = byKey(dailyIncome, 'day');
+    const spendDays = byKey(dailySpend, 'day');
+    const days = [...new Set([...incomeDays.keys(), ...spendDays.keys()])].sort();
+    const daily = days.map((d) => ({ date: d, ...pnl(sumPnl([...(incomeDays.get(d) ?? []), ...(spendDays.get(d) ?? [])])) }));
+    const incomeCountries = byKey(countryIncome, 'country');
+    const spendCountries = byKey(countrySpend, 'country');
+    // Countries with spend, most spend first; past the top TOP_COUNTRIES they share one row.
+    const ranked = [...spendCountries.keys()]
+      .map((c) => ({ country: c, input: sumPnl([...(incomeCountries.get(c) ?? []), ...(spendCountries.get(c) ?? [])]) }))
+      .filter((c) => c.input.spend_usd > 0)
+      .sort((a, b) => b.input.spend_usd - a.input.spend_usd);
+    const rest = ranked.slice(TOP_COUNTRIES);
+    const countries = [
+      ...ranked.slice(0, TOP_COUNTRIES).map((c) => ({ country: c.country, other: false, ...pnl(c.input) })),
+      ...(rest.length ? [{ country: `${rest.length} other countries`, other: true, ...pnl(sumPnl(rest.map((c) => c.input))) }] : []),
+    ];
+    const total: PnlInput = sumPnl([...dailyIncome, ...dailySpend]);
+    const clicks = dailySpend.reduce((s, x) => s + Number(x.clicks ?? 0), 0);
+    const impressions = dailySpend.reduce((s, x) => s + Number(x.impressions ?? 0), 0);
+    return {
+      total: { ...pnl(total), impressions, clicks, ctr: impressions > 0 ? clicks / impressions : null },
+      daily,
+      campaigns: campaigns.map((c) => {
+        const spendUsd = Number(c.spend_usd ?? 0);
+        const paid = Number(c.paid_installs ?? 0);
+        const imps = Number(c.impressions ?? 0);
+        return {
+          channel: c.channel,
+          campaign_id: c.campaign_id,
+          campaign_name: c.campaign_name,
+          platform: c.platform,
+          first_date: String(c.first_date),
+          last_date: String(c.last_date),
+          spend_usd: spendUsd,
+          spend_share: total.spend_usd > 0 ? spendUsd / total.spend_usd : null,
+          impressions: imps,
+          clicks: Number(c.clicks ?? 0),
+          ctr: imps > 0 ? Number(c.clicks ?? 0) / imps : null,
+          paid_installs: paid,
+          cpi: paid > 0 ? spendUsd / paid : null,
+          cpm: imps > 0 ? (spendUsd * 1000) / imps : null,
+        };
+      }),
+      countries,
+    };
   }
 }

@@ -13,7 +13,9 @@ export const fmt = {
   usd(v: number | null | undefined, digits?: number) {
     if (v == null) return DASH;
     const d = digits ?? (Math.abs(v) < 1 ? 3 : Math.abs(v) < 100 ? 2 : 0);
-    return `$${v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+    const text = `$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })}`;
+    // A loss reads −$141, not $-141; a value that rounds to zero gets no sign.
+    return v < 0 && /[1-9]/.test(text) ? `−${text}` : text;
   },
   min(v: number | null | undefined) {
     return v == null ? DASH : `${v.toFixed(1)} min`;

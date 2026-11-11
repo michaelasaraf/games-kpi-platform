@@ -9,6 +9,7 @@ import { Overview } from './pages/Overview';
 import { Portfolio } from './pages/Portfolio';
 import { Progression } from './pages/Progression';
 import { Retention } from './pages/Retention';
+import { UaPage } from './pages/Ua';
 
 declare global {
   interface Window {
@@ -28,6 +29,7 @@ const TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'retention', label: 'Retention' },
   { id: 'monetization', label: 'Monetization' },
+  { id: 'ua', label: 'UA & ROAS' },
   { id: 'progression', label: 'Progression' },
   { id: 'economy', label: 'Economy' },
   { id: 'integration', label: 'Integration' },
@@ -217,6 +219,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                   {view.tab === 'overview' && <Overview game={game} filters={filters} />}
                   {view.tab === 'retention' && <Retention game={game} filters={filters} />}
                   {view.tab === 'monetization' && <Monetization game={game} filters={filters} />}
+                  {view.tab === 'ua' && <UaPage game={game} filters={filters} />}
                   {view.tab === 'progression' && <Progression game={game} filters={filters} />}
                   {view.tab === 'economy' && <Economy game={game} filters={filters} />}
                   {view.tab === 'integration' && <IntegrationPage game={game} />}

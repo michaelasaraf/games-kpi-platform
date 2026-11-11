@@ -153,3 +153,8 @@ td.empty { color: var(--text-muted); }
 .check:last-child { border-bottom: 0; }
 .check .status { width: 84px; flex-shrink: 0; }
 .check ul { margin: 4px 0 0; padding-left: 18px; color: var(--text-secondary); }
+
+/* Money that is a loss (profit below 0, ROAS below 100%) and the opposite. */
+.neg { color: var(--critical); }
+.pos { color: var(--good-text); }
+tr.total td { font-weight: 600; border-top: 1px solid var(--axis); }

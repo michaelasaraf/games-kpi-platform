@@ -146,3 +146,48 @@ export type DailyRow = Omit<Summary, 'retention' | 'ltv' | 'last_complete_date'>
   wau: number | null;
   mau: number | null;
 };
+
+/** Income next to UA spend over the same days (see api/src/metrics.ts pnl). */
+export interface Pnl {
+  ad_revenue_usd: number;
+  iap_revenue_net_usd: number;
+  income_usd: number;
+  spend_usd: number;
+  profit_usd: number;
+  /** Same-period ROAS: income in the range / spend in the range. */
+  roas: number | null;
+  installs: number;
+  paid_installs: number;
+  cpi: number | null;
+  blended_cpi: number | null;
+}
+
+export interface ProfitResponse {
+  games: (Pnl & { game_id: string; name: string })[];
+  total: Pnl;
+}
+
+export interface CampaignRow {
+  channel: string;
+  campaign_id: string;
+  campaign_name: string;
+  platform: string;
+  first_date: string;
+  last_date: string;
+  spend_usd: number;
+  spend_share: number | null;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  paid_installs: number;
+  cpi: number | null;
+  cpm: number | null;
+}
+
+export interface UaResponse {
+  total: Pnl & { impressions: number; clicks: number; ctr: number | null };
+  daily: (Pnl & { date: string })[];
+  campaigns: CampaignRow[];
+  /** Top countries by spend, then one row with other: true for the rest. */
+  countries: (Pnl & { country: string; other: boolean })[];
+}

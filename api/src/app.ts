@@ -87,6 +87,8 @@ export function buildApp(opts: AppOptions): FastifyInstance {
 
     api.get('/portfolio', async (req) => opts.kpis.portfolio(req.gameAccess ?? [], parseRange(req.query)));
 
+    api.get('/profit', async (req) => opts.kpis.profit(req.gameAccess ?? [], parseRange(req.query)));
+
     api.get('/compare', async (req) => opts.kpis.compare(req.gameAccess ?? [], parseRange(req.query)));
 
     const perGame: Record<string, (gameId: string, req: FastifyRequest) => Promise<unknown>> = {
@@ -97,6 +99,7 @@ export function buildApp(opts: AppOptions): FastifyInstance {
       tutorial: (g, req) => opts.kpis.tutorial(g, parseRange(req.query)),
       economy: (g, req) => opts.kpis.economy(g, parseRange(req.query)),
       sources: (g, req) => opts.kpis.sources(g, parseRange(req.query)),
+      ua: (g, req) => opts.kpis.ua(g, parseRange(req.query)),
       platforms: (g) => opts.kpis.platforms(g),
       integration: (g) => opts.kpis.integration(g),
     };

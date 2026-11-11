@@ -1,7 +1,8 @@
-import type { DayStat, Filters } from '../api';
+import type { DayStat, Filters, Pnl, ProfitResponse } from '../api';
 import { Loadable, useApi, vsTarget } from '../components/ui';
 import { fmt } from '../format';
 import { Compare, gameColor } from './Compare';
+import { Money, Roas, UA_NOTE } from './Ua';
 
 interface Row {
   game_id: string;
@@ -65,7 +66,55 @@ export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (game
         )}
       </Loadable>
     </div>
+    <IncomeTable filters={filters} onOpen={onOpen} />
     <Compare filters={filters} />
     </>
+  );
+}
+
+function PnlCells({ p }: { p: Pnl }) {
+  return (
+    <>
+      <td>{fmt.usd(p.ad_revenue_usd, 0)}</td>
+      <td>{fmt.usd(p.iap_revenue_net_usd, 0)}</td>
+      <td>{fmt.usd(p.income_usd, 0)}</td>
+      <td>{fmt.usd(p.spend_usd, 0)}</td>
+      <td><Money v={p.profit_usd} /></td>
+      <td><Roas v={p.roas} /></td>
+      <td>{fmt.usd(p.cpi, 2)}</td>
+    </>
+  );
+}
+
+/** Income from ads and IAP next to UA spend, per game and in total. */
+function IncomeTable({ filters, onOpen }: { filters: Filters; onOpen: (gameId: string) => void }) {
+  const state = useApi<ProfitResponse>('/profit', filters);
+  return (
+    <div className="card section">
+      <h2>Income and UA spend</h2>
+      <p className="sub">{UA_NOTE}</p>
+      <Loadable state={state}>
+        {(p) => (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Game</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Profit</th><th>ROAS</th><th>CPI</th></tr>
+              </thead>
+              <tbody>
+                {p.games.map((g, i) => (
+                  <tr key={g.game_id}>
+                    <td><span className="swatch" style={{ background: `var(${gameColor(i)})` }} aria-hidden="true" /><button className="link-button" onClick={() => onOpen(g.game_id)}>{g.name}</button></td>
+                    <PnlCells p={g} />
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="total"><td>Total</td><PnlCells p={p.total} /></tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </Loadable>
+    </div>
   );
 }

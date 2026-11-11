@@ -296,3 +296,41 @@ export function integrationChecklist(rows: HealthRow[]) {
     };
   })];
 }
+
+/** Income and UA spend for one slice (a game, a day, a campaign, a country). */
+export interface PnlInput {
+  ad_revenue_usd: number;
+  iap_revenue_net_usd: number;
+  spend_usd: number;
+  /** Every new player (organic and paid) in the slice. */
+  installs: number;
+  /** Installs the ad networks report for their own campaigns. */
+  paid_installs: number;
+}
+
+/**
+ * Income minus UA spend over the same days. ROAS here is same-period (blended): all income in the
+ * range divided by spend in the range, since store revenue has no player to tie to a campaign.
+ */
+export function pnl(i: PnlInput) {
+  const income = i.ad_revenue_usd + i.iap_revenue_net_usd;
+  return {
+    ad_revenue_usd: i.ad_revenue_usd,
+    iap_revenue_net_usd: i.iap_revenue_net_usd,
+    income_usd: income,
+    spend_usd: i.spend_usd,
+    profit_usd: income - i.spend_usd,
+    roas: i.spend_usd > 0 ? income / i.spend_usd : null,
+    installs: i.installs,
+    paid_installs: i.paid_installs,
+    cpi: i.paid_installs > 0 ? i.spend_usd / i.paid_installs : null,
+    blended_cpi: i.installs > 0 && i.spend_usd > 0 ? i.spend_usd / i.installs : null,
+  };
+}
+
+/** Sums PnlInput-shaped rows (numbers may arrive as strings from the warehouse). */
+export function sumPnl(rows: object[]): PnlInput {
+  const t: PnlInput = { ad_revenue_usd: 0, iap_revenue_net_usd: 0, spend_usd: 0, installs: 0, paid_installs: 0 };
+  for (const r of rows) for (const k of Object.keys(t) as (keyof PnlInput)[]) t[k] += Number((r as Record<string, unknown>)[k] ?? 0) || 0;
+  return t;
+}

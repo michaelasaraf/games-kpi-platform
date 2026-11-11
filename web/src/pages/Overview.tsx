@@ -3,6 +3,7 @@ import { sourceLabel, type DailyRow, type DayStat, type Filters, type Game, type
 import { Chart } from '../components/Chart';
 import { Card, Loadable, Tile, useApi, vsTarget } from '../components/ui';
 import { fmt } from '../format';
+import { GamePnl } from './Ua';
 
 /** The launch scorecard: the five go/no-go KPIs first, then the daily trends. */
 export function Overview({ game, filters }: { game: Game; filters: Filters }) {
@@ -36,6 +37,7 @@ export function Overview({ game, filters }: { game: Game; filters: Filters }) {
       <Loadable state={sources}>
         {(rows) => <SourceTable rows={rows} selected={filters.source} />}
       </Loadable>
+      <GamePnl game={game} filters={filters} />
     </>
   );
 }

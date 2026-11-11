@@ -3,19 +3,10 @@ import { countryLabel, type Filters, type Game, type UaResponse } from '../api';
 import { Chart } from '../components/Chart';
 import { Card, Loadable, Tile, useApi } from '../components/ui';
 import { fmt } from '../format';
+import { DailyPnl, Money, PnlCells, PNL_HEADERS, Roas } from '../components/Pnl';
 
 export const UA_NOTE =
   'Income and spend over the same days, by platform and country. The UA source filter does not apply: store revenue has no player, so it cannot be split by UA source. ROAS is income in the range divided by spend in the range.';
-
-/** Profit in green or red, so a loss is visible at a glance. */
-export function Money({ v, digits = 0 }: { v: number | null | undefined; digits?: number }) {
-  return <span className={v == null ? undefined : v < 0 ? 'neg' : v > 0 ? 'pos' : undefined}>{fmt.usd(v, digits)}</span>;
-}
-
-export function Roas({ v }: { v: number | null | undefined }) {
-  if (v == null) return <span className="muted">–</span>;
-  return <span className={v < 1 ? 'neg' : 'pos'}>{fmt.pct(v, 0)}</span>;
-}
 
 export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
   const state = useApi<UaResponse>(`/games/${game.game_id}/ua`, filters);
@@ -28,6 +19,7 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
             <>
               <p className="empty-state">No UA spend for {game.name} in this range. Spend comes from Meta Ads, matched by the app each ad set promotes.</p>
               <UaCharts rows={ua.daily} />
+              <GamePnlCard name={game.name} ua={ua} />
             </>
           );
         }
@@ -42,6 +34,7 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
               <Tile label="CTR" value={fmt.pct(t.ctr, 2)} meta={`${fmt.int(t.clicks)} clicks · ${fmt.int(t.impressions)} impressions`} />
             </div>
             <UaCharts rows={ua.daily} />
+            <GamePnlCard name={game.name} ua={ua} />
             <div className="card section">
               <h2>Campaigns</h2>
               <p className="sub">Installs and CPI as Meta reports them (its own attribution window).</p>
@@ -118,4 +111,31 @@ function UaCharts({ rows }: { rows: UaResponse['daily'] }) {
       <Card title="Daily CPI"><Chart x={x} series={cpi} format={(v) => fmt.usd(v, 2)} /></Card>
     </div>
   );
+}
+
+/** One game's income next to its UA spend: a summary row and the same per day. */
+export function GamePnlCard({ name, ua }: { name: string; ua: UaResponse }) {
+  return (
+    <div className="card section">
+      <h2>Income and UA spend</h2>
+      <p className="sub">{UA_NOTE}</p>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Game</th>{PNL_HEADERS.map((h) => <th key={h}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr className="total"><td>{name}</td><PnlCells p={ua.total} /></tr>
+          </tbody>
+        </table>
+      </div>
+      <DailyPnl rows={ua.daily} total={ua.total} who={name} />
+    </div>
+  );
+}
+
+/** The game's income and UA spend card on its own, for tabs that do not load the UA data. */
+export function GamePnl({ game, filters }: { game: Game; filters: Filters }) {
+  const state = useApi<UaResponse>(`/games/${game.game_id}/ua`, filters);
+  return <Loadable state={state}>{(ua) => <GamePnlCard name={game.name} ua={ua} />}</Loadable>;
 }

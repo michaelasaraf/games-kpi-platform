@@ -38,7 +38,7 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
               <Tile label="UA spend" value={fmt.usd(t.spend_usd, 0)} meta={`${fmt.int(t.paid_installs)} installs reported by Meta`} />
               <Tile label="CPI" value={fmt.usd(t.cpi, 2)} meta={`Blended over all ${fmt.int(t.installs)} installs: ${fmt.usd(t.blended_cpi, 2)}`} />
               <Tile label="ROAS" value={fmt.pct(t.roas, 0)} meta={`Income ${fmt.usd(t.income_usd, 0)} / spend`} />
-              <Tile label="Profit" value={fmt.usd(t.profit_usd, 0)} meta={`Ads ${fmt.usd(t.ad_revenue_usd, 0)} + IAP ${fmt.usd(t.iap_revenue_net_usd, 0)} − spend`} />
+              <Tile label="Net (income − UA)" value={fmt.usd(t.profit_usd, 0)} meta={`Ads ${fmt.usd(t.ad_revenue_usd, 0)} + IAP ${fmt.usd(t.iap_revenue_net_usd, 0)} − spend`} />
               <Tile label="CTR" value={fmt.pct(t.ctr, 2)} meta={`${fmt.int(t.clicks)} clicks · ${fmt.int(t.impressions)} impressions`} />
             </div>
             <UaCharts rows={ua.daily} />
@@ -75,7 +75,7 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
               <div className="table-wrap">
                 <table>
                   <thead>
-                    <tr><th>Country</th><th>Spend</th><th>Installs (Meta)</th><th>CPI</th><th>All installs</th><th>Income</th><th>Profit</th><th>ROAS</th></tr>
+                    <tr><th>Country</th><th>Spend</th><th>Installs (Meta)</th><th>CPI</th><th>All installs</th><th>Income</th><th>Net (income − UA)</th><th>ROAS</th></tr>
                   </thead>
                   <tbody>
                     {ua.countries.map((c) => (

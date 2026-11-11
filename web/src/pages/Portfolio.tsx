@@ -72,6 +72,19 @@ export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (game
   );
 }
 
+/**
+ * Adds the net (income − UA spend) summed from the first day of the range up to each day.
+ * Rows arrive newest first, so the sum runs from the end of the list.
+ */
+function withRunningNet<T extends Pnl>(rows: T[]): (T & { running_net_usd: number })[] {
+  let net = 0;
+  const out = [...rows].reverse().map((r) => {
+    net += r.profit_usd;
+    return { ...r, running_net_usd: net };
+  });
+  return out.reverse();
+}
+
 /** Income columns in green, spend in red, so money in and money out read apart at a glance. */
 function PnlCells({ p }: { p: Pnl }) {
   return (
@@ -80,7 +93,7 @@ function PnlCells({ p }: { p: Pnl }) {
       <td className="pos">{fmt.usd(p.iap_revenue_net_usd, 0)}</td>
       <td className="pos">{fmt.usd(p.income_usd, 0)}</td>
       <td className="neg">{fmt.usd(p.spend_usd, 0)}</td>
-      <td><Money v={p.profit_usd} /></td>
+      <td><strong><Money v={p.profit_usd} /></strong></td>
       <td><Roas v={p.roas} /></td>
       <td>{fmt.usd(p.cpi, 2)}</td>
     </>
@@ -99,7 +112,7 @@ function IncomeTable({ filters, onOpen }: { filters: Filters; onOpen: (gameId: s
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Game</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Profit</th><th>ROAS</th><th>CPI</th></tr>
+                <tr><th>Game</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Net (income − UA)</th><th>ROAS</th><th>CPI</th></tr>
               </thead>
               <tbody>
                 {p.games.map((g, i) => (
@@ -114,18 +127,18 @@ function IncomeTable({ filters, onOpen }: { filters: Filters; onOpen: (gameId: s
               </tfoot>
             </table>
             <h2 style={{ marginTop: 28 }}>Profit and loss per day</h2>
-            <p className="sub">All games together, newest day first. Today is partial until the day ends.</p>
+            <p className="sub">All games together, newest day first. Running net adds up income − UA spend from the first day of the range to that day.</p>
             <table>
               <thead>
-                <tr><th>Day</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Profit / loss</th><th>ROAS</th><th>CPI</th></tr>
+                <tr><th>Day</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Net (income − UA)</th><th>ROAS</th><th>CPI</th><th>Running net</th></tr>
               </thead>
               <tbody>
-                {p.daily.map((d) => (
-                  <tr key={d.date}><td>{d.date}</td><PnlCells p={d} /></tr>
+                {withRunningNet(p.daily).map((d) => (
+                  <tr key={d.date}><td>{d.date}</td><PnlCells p={d} /><td><strong><Money v={d.running_net_usd} /></strong></td></tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="total"><td>Total</td><PnlCells p={p.total} /></tr>
+                <tr className="total"><td>Total</td><PnlCells p={p.total} /><td><Money v={p.total.profit_usd} /></td></tr>
               </tfoot>
             </table>
           </div>

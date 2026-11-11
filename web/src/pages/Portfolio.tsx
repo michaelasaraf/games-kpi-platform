@@ -72,13 +72,14 @@ export function Portfolio({ filters, onOpen }: { filters: Filters; onOpen: (game
   );
 }
 
+/** Income columns in green, spend in red, so money in and money out read apart at a glance. */
 function PnlCells({ p }: { p: Pnl }) {
   return (
     <>
-      <td>{fmt.usd(p.ad_revenue_usd, 0)}</td>
-      <td>{fmt.usd(p.iap_revenue_net_usd, 0)}</td>
-      <td>{fmt.usd(p.income_usd, 0)}</td>
-      <td>{fmt.usd(p.spend_usd, 0)}</td>
+      <td className="pos">{fmt.usd(p.ad_revenue_usd, 0)}</td>
+      <td className="pos">{fmt.usd(p.iap_revenue_net_usd, 0)}</td>
+      <td className="pos">{fmt.usd(p.income_usd, 0)}</td>
+      <td className="neg">{fmt.usd(p.spend_usd, 0)}</td>
       <td><Money v={p.profit_usd} /></td>
       <td><Roas v={p.roas} /></td>
       <td>{fmt.usd(p.cpi, 2)}</td>
@@ -106,6 +107,21 @@ function IncomeTable({ filters, onOpen }: { filters: Filters; onOpen: (gameId: s
                     <td><span className="swatch" style={{ background: `var(${gameColor(i)})` }} aria-hidden="true" /><button className="link-button" onClick={() => onOpen(g.game_id)}>{g.name}</button></td>
                     <PnlCells p={g} />
                   </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="total"><td>Total</td><PnlCells p={p.total} /></tr>
+              </tfoot>
+            </table>
+            <h2 style={{ marginTop: 28 }}>Profit and loss per day</h2>
+            <p className="sub">All games together, newest day first. Today is partial until the day ends.</p>
+            <table>
+              <thead>
+                <tr><th>Day</th><th>Ads</th><th>IAP (net)</th><th>Total income</th><th>UA spend</th><th>Profit / loss</th><th>ROAS</th><th>CPI</th></tr>
+              </thead>
+              <tbody>
+                {p.daily.map((d) => (
+                  <tr key={d.date}><td>{d.date}</td><PnlCells p={d} /></tr>
                 ))}
               </tbody>
               <tfoot>

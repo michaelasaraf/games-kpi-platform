@@ -165,6 +165,8 @@ export interface Pnl {
 export interface ProfitResponse {
   games: (Pnl & { game_id: string; name: string })[];
   total: Pnl;
+  /** All visible games together per day, newest first. */
+  daily: (Pnl & { date: string })[];
 }
 
 export interface CampaignRow {

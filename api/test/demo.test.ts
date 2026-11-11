@@ -65,6 +65,10 @@ describe('API on demo data', () => {
     expect(profit.games.length).toBeGreaterThan(0);
     const sum = (k: string) => profit.games.reduce((t: number, g: Record<string, number>) => t + g[k]!, 0);
     for (const k of ['ad_revenue_usd', 'iap_revenue_net_usd', 'income_usd', 'spend_usd']) expect(profit.total[k]).toBeCloseTo(sum(k));
+    // Every day together adds up to the total too, newest day first.
+    const daySum = (k: string) => profit.daily.reduce((t: number, d: Record<string, number>) => t + d[k]!, 0);
+    for (const k of ['income_usd', 'spend_usd', 'profit_usd']) expect(daySum(k)).toBeCloseTo(profit.total[k]);
+    expect(profit.daily[0].date > profit.daily.at(-1).date).toBe(true);
     const g = profit.games[0];
     expect(g.spend_usd).toBeGreaterThan(0);
     expect(g.income_usd).toBeCloseTo(g.ad_revenue_usd + g.iap_revenue_net_usd);

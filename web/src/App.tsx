@@ -44,6 +44,32 @@ interface View extends Filters {
   tab: TabId;
 }
 
+/**
+ * A fresh open of the dashboard (new tab, bookmark, restored session) always starts on the last 7 days,
+ * whatever range the URL carries. A reload of a tab that already had the dashboard open keeps its range.
+ */
+function isFreshOpen() {
+  try {
+    if (window.sessionStorage.getItem('kpi-opened')) return false;
+    window.sessionStorage.setItem('kpi-opened', '1');
+  } catch {
+    // Storage blocked: treat every load as fresh.
+  }
+  return true;
+}
+
+const DEFAULT_DAYS = 7;
+
+if (isFreshOpen()) {
+  // Drop the old range from the URL once, before the first read, so it falls back to the default.
+  const p = new URLSearchParams(window.location.hash.slice(1));
+  if (p.has('from') || p.has('to')) {
+    p.delete('from');
+    p.delete('to');
+    window.history.replaceState(null, '', `#${p}`);
+  }
+}
+
 function readView(): View {
   const p = new URLSearchParams(window.location.hash.slice(1));
   const to = p.get('to') ?? yesterday();
@@ -53,7 +79,7 @@ function readView(): View {
     game: p.get('game'),
     tab: TABS.some((t) => t.id === tab) ? (tab as TabId) : 'overview',
     to,
-    from: p.get('from') ?? daysBefore(to, 29),
+    from: p.get('from') ?? daysBefore(to, DEFAULT_DAYS - 1),
     platform: platform === 'android' || platform === 'ios' ? platform : 'all',
     source: /^[a-z0-9_]{1,40}$/.test(p.get('source') ?? '') ? p.get('source')! : 'all',
     country: /^[\p{L}\p{M} .,'’&()-]{1,60}$/u.test(p.get('country') ?? '') ? p.get('country')! : 'all',

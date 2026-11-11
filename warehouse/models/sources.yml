@@ -14,3 +14,10 @@ sources:
         description: GA4 Data API daily active/new users, sessions and engagement per property, platform and country.
       - name: src_play_installs
         description: Google Play install statistics per day, package and country (stats/installs/*_country.csv).
+
+  # Written by scripts/load_ua_costs.py: UA spend from ad networks, in the build's own dataset.
+  - name: ua
+    schema: "{{ target.schema }}"
+    tables:
+      - name: src_meta_ads_daily
+        description: Meta Ads insights per day, ad account, ad set and country, with the promoted app and spend in USD.

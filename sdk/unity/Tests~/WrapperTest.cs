@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Firebase.Analytics;
 using GamesKpi;
+using UnityEngine;
 
 public static class WrapperTest
 {
@@ -59,6 +60,24 @@ public static class WrapperTest
         int sent = FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution");
         Kpi.ReportInstallReferrer("utm_source=google-play&utm_medium=organic");
         Check(FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution") == sent, "referrer sent once per install");
+        Check(FirebaseAnalytics.Logged.Count(e => e.Key == "meta_install_referrer") == 0, "no Meta referrer for organic installs");
+
+        // An install from before the Meta referrer existed: install_attribution is done, the Meta part is not.
+        var metaJson = "{\"app\":1234,\"t\":1762900000,\"source\":{\"data\":\"" + new string('a', 900) + "\",\"nonce\":\"" + new string('b', 24) + "\"}}";
+        PlayerPrefs.SetString("games_kpi_meta_referrer_done", "");
+        Kpi.ReportInstallReferrer("utm_source=apps.facebook.com&utm_campaign=fb4a&utm_content=" + Uri.EscapeDataString(metaJson));
+        Check(FirebaseAnalytics.Logged.Count(e => e.Key == "install_attribution") == sent, "no second install_attribution");
+        Check(FirebaseAnalytics.Logged.Count(e => e.Key == "meta_install_referrer") == 1, "Meta referrer sent");
+        var metaEvent = FirebaseAnalytics.Logged.Last(e => e.Key == "meta_install_referrer").Value;
+        long parts = (long)metaEvent.First(x => x.Name == "parts").Value;
+        Check(parts == (metaJson.Length + 99) / 100, "Meta referrer split into 100-character parts");
+        var joined = string.Concat(metaEvent.Where(x => x.Name.StartsWith("p0") || x.Name.StartsWith("p1")).OrderBy(x => x.Name).Select(x => (string)x.Value));
+        Check(joined == metaJson, "Meta referrer parts join back to the whole value");
+        Check((string)metaEvent.First(x => x.Name == "origin").Value == "play", "Meta referrer origin");
+        Check(metaEvent.Length <= 25, "Meta referrer within 25 params");
+        Kpi.ReportInstallReferrer("utm_source=apps.facebook.com&utm_content=" + Uri.EscapeDataString(metaJson));
+        Check(FirebaseAnalytics.Logged.Count(e => e.Key == "meta_install_referrer") == 1, "Meta referrer sent once per install");
+        Check(Kpi.MetaReferrerContent("utm_source=apps.facebook.com&utm_content=%7B%22app%22%3A1%7D") == null, "no Meta data without source and nonce");
 
         Kpi.LogCustom("mine_enter", new Parameter("mine", 2L));
         Check((long)P("mine_enter", "mine").Value == 2L, "custom event keeps its params");

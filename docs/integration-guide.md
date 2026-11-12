@@ -29,7 +29,7 @@ Do not send any event before the player's consent is known if the game asks for 
 `Packages/manifest.json`:
 
 ```json
-"com.gameskpi.analytics": "https://github.com/michaelasaraf/games-kpi-platform.git?path=sdk/unity#v0.1.0"
+"com.gameskpi.analytics": "https://github.com/michaelasaraf/games-kpi-platform.git?path=sdk/unity#v0.2.0"
 ```
 
 **Flutter** (with `firebase_core` and `firebase_analytics` already in the app). In `pubspec.yaml`:
@@ -40,7 +40,7 @@ dependencies:
     git:
       url: https://github.com/michaelasaraf/games-kpi-platform.git
       path: sdk/flutter
-      ref: v0.1.0
+      ref: v0.2.0
 ```
 
 Pin a tag, never a branch, so a catalog change does not reach the game without a release.
@@ -214,7 +214,9 @@ Each player's source is taken from the first of these that exists:
 1. **An attribution SDK (Tenjin).** Most accurate, and the only one that sees iOS and Meta view-through installs.
 2. **The Google Play install referrer.** The wrapper reads it by itself on Android, once per install, and sends
    `install_attribution` with provider `play_referrer`. It sees Google Ads clicks and Meta click-through installs.
-   Nothing to do here, apart from the ProGuard note below.
+   Nothing to do here, apart from the ProGuard note below. For Meta installs the wrapper also sends Meta's
+   encrypted campaign data as `meta_install_referrer` (in 100-character parts), which gives the dashboard
+   retention and ROAS per Meta campaign, ad set and ad (see setup.md, section 8).
 3. **Firebase's own install source.** Sees Google Ads when the Ads account is linked to Firebase.
 
 Players with none of these show as Unknown (most iOS installs in games without Tenjin).

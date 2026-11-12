@@ -20,4 +20,9 @@ sources:
     schema: "{{ target.schema }}"
     tables:
       - name: src_meta_ads_daily
-        description: Meta Ads insights per day, ad account, ad set and country, with the promoted app and spend in USD.
+        description: Meta Ads insights per day, ad account, ad and country, with the promoted app, spend in USD and Meta-reported installs and purchases.
+      - name: src_meta_ads
+        description: Every Meta ad with its ad set, campaign and creative (name, thumbnail, title, body).
+      # Written by scripts/load_meta_referrers.py: Meta's encrypted Play install referrers, decrypted.
+      - name: src_meta_install_referrers
+        description: One row per meta_install_referrer event, with the Meta campaign, ad set and ad it names.

@@ -86,5 +86,23 @@ describe('API on demo data', () => {
     expect(filtered.total.spend_usd).toBeCloseTo(g.spend_usd);
     const de = await get(`/api/games/${g.game_id}/ua?country=Germany`);
     expect(de.countries.map((c: { country: string }) => c.country)).toEqual(['Germany']);
+ 
+
+    // Campaign > ad set > ad tree: spend adds up at every level, and ads carry our own cohort numbers.
+    type N = { level: string; spend_usd: number; installs: number; d1: number | null; d7: number | null; roas_d7: number | null; reliable: boolean; children: N[] };
+    const tree: N[] = ua.ads;
+    expect(tree.reduce((t, c) => t + c.spend_usd, 0)).toBeCloseTo(g.spend_usd);
+    for (const c of tree) {
+      expect(c.level).toBe('campaign');
+      expect(c.children.reduce((t, a) => t + a.spend_usd, 0)).toBeCloseTo(c.spend_usd);
+      for (const a of c.children) expect(a.children.reduce((t, x) => t + x.installs, 0)).toBe(a.installs);
+    }
+    const ad = tree[0]!.children[0]!.children[0]!;
+    expect(ad.level).toBe('ad');
+    expect(ad.installs).toBeGreaterThan(0);
+    expect(ad.d1).toBeGreaterThan(0);
+    expect(ad.d7).toBeGreaterThan(0);
+    expect(ad.roas_d7).toBeGreaterThan(0);
+    expect(tree[0]!.spend_usd).toBeGreaterThanOrEqual(tree.at(-1)!.spend_usd);
   });
 });

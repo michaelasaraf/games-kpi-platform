@@ -334,3 +334,141 @@ export function sumPnl(rows: object[]): PnlInput {
   for (const r of rows) for (const k of Object.keys(t) as (keyof PnlInput)[]) t[k] += Number((r as Record<string, unknown>)[k] ?? 0) || 0;
   return t;
 }
+
+/** Ads with fewer of our own attributed installs than this are shown greyed out (too noisy to judge). */
+export const MIN_RELIABLE_AD_INSTALLS = 300;
+
+/** One ad's spend in the range, from kpi_ua_spend (Meta's own numbers). */
+export interface AdSpendRow {
+  campaign_id: string;
+  campaign_name: string | null;
+  adset_id: string;
+  adset_name: string | null;
+  ad_id: string;
+  ad_name: string | null;
+  spend_usd: number;
+  /** Spend on days at least 7 days ago: the base of D7 ROAS. */
+  spend_d7_usd: number;
+  impressions: number;
+  clicks: number;
+  paid_installs: number;
+  network_purchases: number;
+  network_purchase_value_usd: number;
+}
+
+/** One ad's install cohorts in the range, from kpi_ua_ad_cohort (our own attribution). */
+export interface AdCohortRow {
+  campaign_id: string;
+  adset_id: string;
+  ad_id: string;
+  installs: number;
+  /** Installs at least 1 (7) days old, and how many of them came back on day 1 (7). */
+  installs_d1: number;
+  returned_d1: number;
+  installs_d7: number;
+  returned_d7: number;
+  /** Revenue in days 0-7 of the installs at least 7 days old. */
+  revenue_d7_usd: number;
+  revenue_usd: number;
+}
+
+export interface AdInfo {
+  ad_id: string;
+  status: string | null;
+  thumbnail_url: string | null;
+  title: string | null;
+}
+
+const AD_SUMS = ['spend_usd', 'spend_d7_usd', 'impressions', 'clicks', 'paid_installs', 'network_purchases',
+  'network_purchase_value_usd', 'installs', 'installs_d1', 'returned_d1', 'installs_d7', 'returned_d7',
+  'revenue_d7_usd', 'revenue_usd'] as const;
+type AdSums = Record<(typeof AD_SUMS)[number], number>;
+
+export interface AdNode extends AdSums {
+  level: 'campaign' | 'adset' | 'ad';
+  id: string;
+  name: string;
+  ctr: number | null;
+  /** Spend per install Meta reports, and per install our attribution gives the ad. */
+  meta_cpi: number | null;
+  cpi: number | null;
+  d1: number | null;
+  d7: number | null;
+  roas_d7: number | null;
+  roas: number | null;
+  /** Purchase value Meta reports (Meta SDK purchases) / spend. */
+  meta_roas: number | null;
+  reliable: boolean;
+  status?: string | null;
+  thumbnail_url?: string | null;
+  title?: string | null;
+  children: AdNode[];
+}
+
+const ratio = (a: number, b: number) => (b > 0 ? a / b : null);
+
+function node(level: AdNode['level'], id: string, name: string, s: AdSums, children: AdNode[]): AdNode {
+  return {
+    level, id, name, ...s, children,
+    ctr: ratio(s.clicks, s.impressions),
+    meta_cpi: ratio(s.spend_usd, s.paid_installs),
+    cpi: ratio(s.spend_usd, s.installs),
+    d1: ratio(s.returned_d1, s.installs_d1),
+    d7: ratio(s.returned_d7, s.installs_d7),
+    roas_d7: s.installs_d7 > 0 ? ratio(s.revenue_d7_usd, s.spend_d7_usd) : null,
+    roas: s.installs > 0 ? ratio(s.revenue_usd, s.spend_usd) : null,
+    // No purchase value at all usually means the game sends Meta no purchase events: show nothing, not 0%.
+    meta_roas: s.network_purchase_value_usd > 0 ? ratio(s.network_purchase_value_usd, s.spend_usd) : null,
+    reliable: s.installs >= MIN_RELIABLE_AD_INSTALLS,
+  };
+}
+
+function addSums(rows: object[]): AdSums {
+  const t = Object.fromEntries(AD_SUMS.map((k) => [k, 0])) as AdSums;
+  for (const r of rows) for (const k of AD_SUMS) t[k] += Number((r as Record<string, unknown>)[k] ?? 0) || 0;
+  return t;
+}
+
+/**
+ * Campaign > ad set > ad tree with Meta's spend next to our own installs, retention and revenue
+ * per ad, biggest spend first. Ads with installs but no spend in the range are kept.
+ */
+export function adTree(spend: AdSpendRow[], cohorts: AdCohortRow[], info: AdInfo[] = []): AdNode[] {
+  const key = (r: { campaign_id: string; adset_id: string; ad_id: string }) => `${r.campaign_id}|${r.adset_id}|${r.ad_id}`;
+  type Ad = { campaign_id: string; adset_id: string; ad_id: string; names: Partial<AdSpendRow>; rows: object[] };
+  const ads = new Map<string, Ad>();
+  for (const r of [...spend, ...cohorts]) {
+    const k = key(r);
+    const a = ads.get(k) ?? { campaign_id: r.campaign_id, adset_id: r.adset_id, ad_id: r.ad_id, names: {}, rows: [] };
+    a.rows.push(r);
+    if ('campaign_name' in r) a.names = r;
+    ads.set(k, a);
+  }
+  const infoById = new Map(info.map((i) => [i.ad_id, i]));
+  const bySpend = (a: AdNode, b: AdNode) => b.spend_usd - a.spend_usd || b.installs - a.installs;
+  const campaigns = new Map<string, Map<string, Ad[]>>();
+  for (const a of ads.values()) {
+    const sets = campaigns.get(a.campaign_id) ?? new Map<string, Ad[]>();
+    sets.set(a.adset_id, [...(sets.get(a.adset_id) ?? []), a]);
+    campaigns.set(a.campaign_id, sets);
+  }
+  const out: AdNode[] = [];
+  for (const [campaignId, sets] of campaigns) {
+    const setNodes: AdNode[] = [];
+    let campaignName = '';
+    for (const [adsetId, list] of sets) {
+      let adsetName = '';
+      const adNodes = list.map((a) => {
+        campaignName ||= a.names.campaign_name ?? '';
+        adsetName ||= a.names.adset_name ?? '';
+        const i = infoById.get(a.ad_id);
+        const n = node('ad', a.ad_id, a.ad_id ? (a.names.ad_name ?? `Ad ${a.ad_id}`) : 'Before per-ad data', addSums(a.rows), []);
+        return { ...n, status: i?.status ?? null, thumbnail_url: i?.thumbnail_url ?? null, title: i?.title ?? null };
+      }).sort(bySpend);
+      setNodes.push(node('adset', adsetId, adsetName || `Ad set ${adsetId}`, addSums(adNodes), adNodes));
+    }
+    setNodes.sort(bySpend);
+    out.push(node('campaign', campaignId, campaignName || `Campaign ${campaignId}`, addSums(setNodes), setNodes));
+  }
+  return out.sort(bySpend);
+}

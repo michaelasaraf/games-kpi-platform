@@ -106,4 +106,29 @@ void main() {
     await Kpi.init(analytics: fake, installReferrer: referrer);
     expect(fake.logged.single.$1, 'install_attribution');
   });
+
+  test('sends Meta campaign data in parts, also for installs from before it existed', () async {
+    final metaJson = '{"app":1234,"t":1762900000,"source":{"data":"${'a' * 900}","nonce":"${'b' * 24}"}}';
+    final ref = 'utm_source=apps.facebook.com&utm_campaign=fb4a&utm_content=${Uri.encodeComponent(metaJson)}';
+    SharedPreferences.setMockInitialValues({'games_kpi_referrer_done': true});
+    final fake = FakeAnalytics();
+    Future<String?> referrer() async => ref;
+    await Kpi.init(analytics: fake, installReferrer: referrer);
+    await Kpi.init(analytics: fake, installReferrer: referrer);
+    expect(fake.logged.where((e) => e.$1 == 'install_attribution'), isEmpty);
+    final sent = fake.logged.where((e) => e.$1 == 'meta_install_referrer').toList();
+    expect(sent, hasLength(1));
+    final p = sent.single.$2;
+    expect(p['origin'], 'play');
+    expect(p['parts'], (metaJson.length + 99) ~/ 100);
+    final keys = p.keys.where((k) => RegExp(r'^p\d\d$').hasMatch(k)).toList()..sort();
+    expect(keys.map((k) => p[k]).join(), metaJson);
+    expect(p.length, lessThanOrEqualTo(25));
+  });
+
+  test('finds Meta campaign data only when it has source and nonce', () {
+    expect(metaReferrerContent('utm_source=apps.facebook.com&utm_content=%7B%22app%22%3A1%7D'), isNull);
+    expect(metaReferrerContent('utm_source=google-play&utm_medium=organic'), isNull);
+    expect(metaReferrerContent('utm_content=%7B%22source%22%3A%7B%22nonce%22%3A%22x%22%7D%7D'), '{"source":{"nonce":"x"}}');
+  });
 }

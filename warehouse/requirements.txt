@@ -2,3 +2,4 @@ dbt-core==1.10.23
 dbt-bigquery==1.10.3
 google-cloud-storage>=2.0
 requests>=2.31
+cryptography>=42

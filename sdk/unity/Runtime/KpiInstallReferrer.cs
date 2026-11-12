@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Firebase.Analytics;
 using UnityEngine;
 
 namespace GamesKpi
@@ -9,10 +10,18 @@ namespace GamesKpi
     /// the wrapper reads the referrer once per install and sends it as install_attribution with
     /// provider play_referrer. It sees Google Ads and Meta click-through installs; iOS installs and
     /// Meta view-through installs need an attribution SDK (call Kpi.InstallAttribution from it).
+    /// For Meta installs it also sends Meta's encrypted campaign data (utm_content) whole, as the
+    /// meta_install_referrer event in 100-character parts, so the KPI build can decrypt the campaign,
+    /// ad set and ad that brought the player. Firebase drops that value from its own campaign event
+    /// (it is far over 100 characters). Installs from before this version send it on their next launch,
+    /// while Google Play still has their referrer (about 90 days).
     /// </summary>
     public static partial class Kpi
     {
         const string ReferrerDoneKey = "games_kpi_referrer_done";
+        const string MetaReferrerDoneKey = "games_kpi_meta_referrer_done";
+        /// <summary>Up to 20 parts of 100 characters: Meta's data is about 950, and Firebase allows 25 params.</summary>
+        const int MetaReferrerMaxParts = 20;
 
         /// <summary>Set to false before Init to stop the wrapper reading the Play install referrer.</summary>
         public static bool AutoInstallReferrer { get; set; } = true;
@@ -63,6 +72,37 @@ namespace GamesKpi
             return info;
         }
 
+        /// <summary>Meta's encrypted campaign data (the decoded utm_content JSON), or null when the referrer has none.</summary>
+        internal static string MetaReferrerContent(string referrer)
+        {
+            foreach (var part in (referrer ?? string.Empty).Split('&'))
+            {
+                if (!part.StartsWith("utm_content=", StringComparison.OrdinalIgnoreCase)) continue;
+                var raw = part.Substring("utm_content=".Length).Replace('+', ' ');
+                string value;
+                try { value = Uri.UnescapeDataString(raw); } catch (Exception) { value = raw; }
+                return value.Contains("\"source\"") && value.Contains("\"nonce\"") ? value : null;
+            }
+            return null;
+        }
+
+        /// <summary>Sends Meta's encrypted campaign data in 100-character params p00, p01, ...</summary>
+        internal static void SendMetaReferrer(string content, string origin)
+        {
+            var parts = Math.Min(MetaReferrerMaxParts, (content.Length + MaxStringLength - 1) / MaxStringLength);
+            var p = new List<Parameter>(parts + 5);
+            p.Add(new Parameter("origin", origin));
+            p.Add(new Parameter("parts", (long)parts));
+            for (var i = 0; i < parts; i++)
+            {
+                var start = i * MaxStringLength;
+                p.Add(new Parameter($"p{i:00}", content.Substring(start, Math.Min(MaxStringLength, content.Length - start))));
+            }
+            Log("meta_install_referrer", p);
+        }
+
+        static bool Done(string key) => PlayerPrefs.GetString(key, "") == "1";
+
         static string NonEmpty(Dictionary<string, string> q, string key)
         {
             string v;
@@ -72,20 +112,29 @@ namespace GamesKpi
         /// <summary>Sends the referrer once per install. Runs on the main thread.</summary>
         internal static void ReportInstallReferrer(string referrer)
         {
-            if (PlayerPrefs.GetString(ReferrerDoneKey, "") == "1") return;
+            if (Done(ReferrerDoneKey) && Done(MetaReferrerDoneKey)) return;
             if (!_collectionEnabled) return; // try again on a later launch, once consent allows it
-            if (!string.IsNullOrEmpty(referrer))
+            if (!Done(ReferrerDoneKey))
             {
-                var info = ParseReferrer(referrer);
-                InstallAttribution("play_referrer", info.MediaSource, campaign: info.Campaign, isOrganic: info.IsOrganic, referrer: referrer);
+                if (!string.IsNullOrEmpty(referrer))
+                {
+                    var info = ParseReferrer(referrer);
+                    InstallAttribution("play_referrer", info.MediaSource, campaign: info.Campaign, isOrganic: info.IsOrganic, referrer: referrer);
+                }
+                PlayerPrefs.SetString(ReferrerDoneKey, "1");
             }
-            PlayerPrefs.SetString(ReferrerDoneKey, "1");
+            if (!Done(MetaReferrerDoneKey))
+            {
+                var meta = MetaReferrerContent(referrer);
+                if (meta != null) SendMetaReferrer(meta, "play");
+                PlayerPrefs.SetString(MetaReferrerDoneKey, "1");
+            }
         }
 
         static void StartInstallReferrer()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
-            if (!AutoInstallReferrer || PlayerPrefs.GetString(ReferrerDoneKey, "") == "1") return;
+            if (!AutoInstallReferrer || (Done(ReferrerDoneKey) && Done(MetaReferrerDoneKey))) return;
             try
             {
                 KpiMainThread.Ensure();

@@ -51,8 +51,10 @@ function generate() {
   const tables: Record<string, Record<string, unknown>[]> = {
     dim_games: [], kpi_daily: [], kpi_active_users: [], kpi_cohort: [], kpi_levels: [],
     kpi_tutorial: [], kpi_churn_levels: [], kpi_economy: [], kpi_data_health: [], kpi_ua_spend: [],
+    kpi_ua_ad_cohort: [], dim_ua_ads: [],
   };
 
+  const adIds = new Set<string>();
   for (const g of GAMES) {
     tables.dim_games!.push({ game_id: g.game_id, name: g.name, engine: g.engine, timezone: 'UTC', d1_target: 0.4, d7_target: 0.15 });
     const retention = (n: number) => (n === 0 ? 1 : g.d1 * Math.pow(n, -g.decay));
@@ -65,15 +67,40 @@ function generate() {
         if (ua_source === 'meta') {
           // Meta reports ~90% of the installs our attribution gives it, at a country-dependent CPI.
           const cpi = country === 'United States' ? 1.9 : country === 'Germany' ? 1.2 : 0.35;
+          // Two creatives per campaign: a video that retains better and a playable that installs cheaper.
+          const creatives: [string, string, number, number, number][] = [['video', 'Video: empire timelapse', 0.6, 1.0, 1.1], ['playable', 'Playable: first trade', 0.4, 0.8, 0.85]];
           days.forEach((date, i) => {
             if (installs[i] === 0) return;
-            tables.kpi_ua_spend!.push({
-              game_id: g.game_id, spend_date: date, platform, country, channel: 'meta',
-              campaign_id: `${g.game_id}_${platform}_${i < 60 ? 'launch' : 'scale'}`,
-              campaign_name: `${g.name} ${platform === 'ios' ? 'iOS' : 'Android'} ${i < 60 ? 'Launch' : 'Scale'}`,
-              spend_usd: installs[i]! * cpi * (0.85 + ((i * 37) % 30) / 100), impressions: installs[i]! * 900,
-              clicks: installs[i]! * 12, network_installs: Math.round(installs[i]! * 0.9),
-            });
+            const phase = i < 60 ? 'launch' : 'scale';
+            const campaign_id = `${g.game_id}_${platform}_${phase}`;
+            const adset_id = `${campaign_id}_${country === 'United States' ? 'us' : 'row'}`;
+            for (const [kind, adName, share, cpiMult, retMult] of creatives) {
+              const n = installs[i]! * share;
+              const ad_id = `${adset_id}_${kind}`;
+              tables.kpi_ua_spend!.push({
+                game_id: g.game_id, spend_date: date, platform, country, channel: 'meta',
+                campaign_id, campaign_name: `${g.name} ${platform === 'ios' ? 'iOS' : 'Android'} ${phase === 'launch' ? 'Launch' : 'Scale'}`,
+                adset_id, adset_name: country === 'United States' ? 'US' : 'Rest of world', ad_id, ad_name: adName,
+                spend_usd: n * cpi * cpiMult * (0.85 + ((i * 37) % 30) / 100), impressions: Math.round(n * 900),
+                clicks: Math.round(n * 12), network_installs: Math.round(n * 0.9),
+                network_purchases: Math.round(n * 0.02), network_purchase_value_usd: n * 0.02 * 4.99,
+              });
+              if (!adIds.has(ad_id)) {
+                adIds.add(ad_id);
+                tables.dim_ua_ads!.push({ ad_id, ad_name: adName, adset_id, campaign_id, status: phase === 'launch' ? 'PAUSED' : 'ACTIVE', thumbnail_url: null, title: adName });
+              }
+              // Our own attribution sees ~80% of Meta's installs (click-through only).
+              const size = Math.round(n * 0.8);
+              for (const dayN of [0, 1, 7, 14, 30]) {
+                if (i + dayN >= days.length || size === 0) continue;
+                const active = dayN === 0 ? size : Math.round(size * retention(dayN) * 0.88 * retMult);
+                const rev = active * g.arpdau * 1.25 * (country === 'United States' ? 1.8 : 0.7) * (dayN === 0 ? 1 : dayN === 1 ? 1 : 3);
+                tables.kpi_ua_ad_cohort!.push({
+                  game_id: g.game_id, install_date: date, platform, country, campaign_id, adset_id, ad_id, day_n: dayN,
+                  active_players: active, ad_revenue_usd: rev * 0.7, iap_revenue_net_usd: rev * 0.3, payers: 0, playtime_sec: active * 1000, cohort_size: size,
+                });
+              }
+            }
           });
         }
         days.forEach((installDate, i) => {
@@ -217,7 +244,7 @@ export class DemoWarehouse implements Warehouse {
         await conn.run(`ALTER TABLE ${table} ALTER event_date TYPE DATE`);
       }
       if (table === 'kpi_ua_spend') await conn.run(`ALTER TABLE ${table} ALTER spend_date TYPE DATE`);
-      if (['kpi_cohort', 'kpi_tutorial', 'kpi_churn_levels'].includes(table)) {
+      if (['kpi_cohort', 'kpi_tutorial', 'kpi_churn_levels', 'kpi_ua_ad_cohort'].includes(table)) {
         await conn.run(`ALTER TABLE ${table} ALTER install_date TYPE DATE`);
       }
     }

@@ -158,3 +158,7 @@ td.empty { color: var(--text-muted); }
 .neg { color: var(--critical); }
 .pos { color: var(--good-text); }
 tr.total td { font-weight: 600; border-top: 1px solid var(--axis); }
+
+/* Campaign > ad set > ad rows on the UA tab. */
+.ad-name { display: inline-flex; align-items: center; gap: 6px; }
+.ad-thumb { width: 28px; height: 28px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }

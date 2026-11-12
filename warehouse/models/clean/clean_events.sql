@@ -184,6 +184,23 @@ flattened as (
       when event_name = 'app_store_refund' and iap_source = 'firebase_auto'
         then coalesce(event_value_in_usd, 0)
     end as refund_usd,
+    -- Per-player revenue for UA cohorts (revenue per campaign and ad), also for games whose totals
+    -- come from the store reports and the AdMob API: those reports have no player, so these use
+    -- Firebase's own events (AdMob linked to Firebase: ad_impression; Play linked: in_app_purchase).
+    -- The KPI totals above stay as they are.
+    case
+      when event_name = 'ad_impression'
+       and ((ad_revenue_source = 'wrapper' and kpi_event_id is not null)
+         or (ad_revenue_source != 'wrapper' and kpi_event_id is null))
+        then coalesce(event_value_in_usd, 0)
+    end as player_ad_revenue_usd,
+    case
+      when (event_name = 'iap_purchase' and iap_source = 'wrapper')
+        or (event_name = 'in_app_purchase' and iap_source != 'wrapper')
+        then coalesce(event_value_in_usd, 0) * (1 - store_fee)
+      when event_name = 'app_store_refund' and iap_source != 'wrapper'
+        then -coalesce(event_value_in_usd, 0) * (1 - store_fee)
+    end as player_iap_revenue_net_usd,
     store_fee
   from timed
 )

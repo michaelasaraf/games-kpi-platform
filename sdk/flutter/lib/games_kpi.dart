@@ -15,7 +15,7 @@ part 'src/install_referrer.dart';
 part 'src/kpi_events.g.dart';
 
 /// Version tag sent with every event as `kpi_sdk`.
-const String kpiSdkVersion = 'flutter-0.1.0';
+const String kpiSdkVersion = 'flutter-0.2.0';
 
 const String _seqKey = 'games_kpi_seq';
 const int _maxStringLength = 100;

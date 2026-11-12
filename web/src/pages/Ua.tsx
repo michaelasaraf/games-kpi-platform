@@ -4,6 +4,7 @@ import { Chart } from '../components/Chart';
 import { Card, Loadable, Tile, useApi } from '../components/ui';
 import { fmt } from '../format';
 import { DailyPnl, Money, PnlCells, PNL_HEADERS, Roas } from '../components/Pnl';
+import { AdTree } from '../components/AdTree';
 
 export const UA_NOTE =
   'Income and spend over the same days, by platform and country. The UA source filter does not apply: store revenue has no player, so it cannot be split by UA source. ROAS is income in the range divided by spend in the range.';
@@ -35,33 +36,35 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
             </div>
             <UaCharts rows={ua.daily} />
             <GamePnlCard name={game.name} ua={ua} />
-            <div className="card section">
-              <h2>Campaigns</h2>
-              <p className="sub">Installs and CPI as Meta reports them (its own attribution window).</p>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr><th>Campaign</th><th>Platform</th><th>Days</th><th>Spend</th><th>Share</th><th>Impressions</th><th>CTR</th><th>CPM</th><th>Installs</th><th>CPI</th></tr>
-                  </thead>
-                  <tbody>
-                    {ua.campaigns.map((c) => (
-                      <tr key={`${c.channel}|${c.campaign_id}|${c.platform}`}>
-                        <td>{c.campaign_name} <span className="muted">{c.channel === 'meta' ? 'Meta' : c.channel}</span></td>
-                        <td>{c.platform === 'ios' ? 'iOS' : c.platform === 'android' ? 'Android' : c.platform}</td>
-                        <td className="muted">{c.first_date.slice(5)} → {c.last_date.slice(5)}</td>
-                        <td>{fmt.usd(c.spend_usd, 0)}</td>
-                        <td>{fmt.pct(c.spend_share, 0)}</td>
-                        <td>{fmt.int(c.impressions)}</td>
-                        <td>{fmt.pct(c.ctr, 2)}</td>
-                        <td>{fmt.usd(c.cpm, 2)}</td>
-                        <td>{fmt.int(c.paid_installs)}</td>
-                        <td>{fmt.usd(c.cpi, 2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {ua.ads && ua.ads.length > 0 ? <AdTree rows={ua.ads} /> : (
+              <div className="card section">
+                <h2>Campaigns</h2>
+                <p className="sub">Installs and CPI as Meta reports them (its own attribution window).</p>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th>Campaign</th><th>Platform</th><th>Days</th><th>Spend</th><th>Share</th><th>Impressions</th><th>CTR</th><th>CPM</th><th>Installs</th><th>CPI</th></tr>
+                    </thead>
+                    <tbody>
+                      {ua.campaigns.map((c) => (
+                        <tr key={`${c.channel}|${c.campaign_id}|${c.platform}`}>
+                          <td>{c.campaign_name} <span className="muted">{c.channel === 'meta' ? 'Meta' : c.channel}</span></td>
+                          <td>{c.platform === 'ios' ? 'iOS' : c.platform === 'android' ? 'Android' : c.platform}</td>
+                          <td className="muted">{c.first_date.slice(5)} → {c.last_date.slice(5)}</td>
+                          <td>{fmt.usd(c.spend_usd, 0)}</td>
+                          <td>{fmt.pct(c.spend_share, 0)}</td>
+                          <td>{fmt.int(c.impressions)}</td>
+                          <td>{fmt.pct(c.ctr, 2)}</td>
+                          <td>{fmt.usd(c.cpm, 2)}</td>
+                          <td>{fmt.int(c.paid_installs)}</td>
+                          <td>{fmt.usd(c.cpi, 2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
             <div className="card section">
               <h2>By country</h2>
               <p className="sub">The 15 countries with the most spend, then the rest together. Income is everything the country earned in the range, organic included.</p>

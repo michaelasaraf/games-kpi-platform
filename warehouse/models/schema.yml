@@ -43,6 +43,13 @@ models:
           arguments:
             columns: [game_id, player_id]
 
+  - name: player_meta_ad
+    description: One row per game and player that a Meta ad brought, with its campaign, ad set and ad (decrypted install referrer).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, player_id]
+
   - name: dim_games
     description: Games registry from dbt_project.yml.
     columns:
@@ -57,11 +64,24 @@ models:
             columns: [game_id, event_date, platform, country, ua_source]
 
   - name: kpi_ua_spend
-    description: UA spend (Meta Ads) per game, date, platform, country, channel and campaign.
+    description: UA spend (Meta Ads) per game, date, platform, country, channel, campaign, ad set and ad.
     data_tests:
       - unique_combination:
           arguments:
-            columns: [game_id, spend_date, platform, country, channel, campaign_id]
+            columns: [game_id, spend_date, platform, country, channel, campaign_id, adset_id, ad_id]
+
+  - name: dim_ua_ads
+    description: One row per Meta ad with its names, status and creative (thumbnail, title, body).
+    columns:
+      - name: ad_id
+        data_tests: [unique, not_null]
+
+  - name: kpi_ua_ad_cohort
+    description: Install cohorts of Meta-attributed players (decrypted install referrer) by campaign, ad set and ad, by day since install.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [game_id, install_date, platform, country, campaign_id, adset_id, ad_id, day_n]
 
   - name: kpi_active_users
     description: DAU, WAU and MAU per game, date, platform, country, UA source.

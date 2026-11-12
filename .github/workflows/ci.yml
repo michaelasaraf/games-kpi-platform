@@ -57,6 +57,8 @@ jobs:
         env: { GCP_PROJECT: ci-placeholder }
       - name: Render and parse every model as BigQuery SQL
         run: python scripts/check_sql.py
+      - name: Meta referrer decryption
+        run: python scripts/test_meta_referrers.py
 
   unity:
     name: Unity wrapper

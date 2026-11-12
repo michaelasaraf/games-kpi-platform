@@ -1,5 +1,5 @@
 {#-
-  UA spend per game, day, platform, country, channel and campaign, from Meta Ads
+  UA spend per game, day, platform, country, channel, campaign, ad set and ad, from Meta Ads
   (scripts/load_ua_costs.py). The base for CPI and ROAS: spend here, installs and revenue from
   kpi_daily / kpi_cohort.
 
@@ -9,7 +9,8 @@
   on the campaign name. Spend that matches no game is left out.
 
   Days follow the ad account's time zone. network_installs are the installs Meta reports for its
-  own attribution setting (usually 7-day click, 1-day view), not the installs our attribution gives Meta.
+  own attribution setting (usually 7-day click, 1-day view), not the installs our attribution gives Meta;
+  network_purchases and network_purchase_value_usd likewise (purchases the Meta SDK reported to Meta).
 -#}
 {%- set gs = games() %}
 
@@ -48,11 +49,17 @@ meta as (
     'meta' as channel,
     s.campaign_id,
     s.campaign_name,
+    s.adset_id,
+    s.adset_name,
+    s.ad_id,
+    s.ad_name,
     s.loaded_at,
     coalesce(s.spend_usd, 0) as spend_usd,
     s.impressions,
     s.clicks,
-    s.installs
+    s.installs,
+    s.purchases,
+    s.purchase_value_usd
   from {{ source('ua', 'src_meta_ads_daily') }} as s
   left join ids as s_store on s_store.kind = 'store' and s_store.id = s.app_store_id
   left join ids as s_app on s_app.kind = 'meta_app' and s_app.id = s.meta_app_id
@@ -65,13 +72,20 @@ select
   coalesce(cc.country, m.country_code, 'unknown') as country,
   m.channel,
   m.campaign_id,
+  -- Rows loaded before ad-level loading have no ad: they stand for their ad set.
+  coalesce(m.adset_id, '') as adset_id,
+  coalesce(m.ad_id, '') as ad_id,
   array_agg(m.campaign_name order by m.spend_date desc, m.loaded_at desc limit 1)[offset(0)] as campaign_name,
+  array_agg(m.adset_name ignore nulls order by m.spend_date desc, m.loaded_at desc limit 1)[safe_offset(0)] as adset_name,
+  array_agg(m.ad_name ignore nulls order by m.spend_date desc, m.loaded_at desc limit 1)[safe_offset(0)] as ad_name,
   sum(m.spend_usd) as spend_usd,
   sum(m.impressions) as impressions,
   sum(m.clicks) as clicks,
-  sum(m.installs) as network_installs
+  sum(m.installs) as network_installs,
+  coalesce(sum(m.purchases), 0) as network_purchases,
+  coalesce(sum(m.purchase_value_usd), 0) as network_purchase_value_usd
 from meta as m
 left join {{ ref('country_codes') }} as cc on cc.country_code = m.country_code
 where m.game_id is not null
   and m.spend_date >= {{ start_date_expr() }}
-group by 1, 2, 3, 4, 5, 6
+group by 1, 2, 3, 4, 5, 6, 7, 8

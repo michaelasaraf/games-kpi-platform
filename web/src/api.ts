@@ -186,10 +186,43 @@ export interface CampaignRow {
   cpm: number | null;
 }
 
+/** One row of the campaign > ad set > ad tree on the UA tab. */
+export interface AdNode {
+  level: 'campaign' | 'adset' | 'ad';
+  id: string;
+  name: string;
+  spend_usd: number;
+  impressions: number;
+  clicks: number;
+  ctr: number | null;
+  /** Meta's own count and its CPI and purchase ROAS (Meta SDK purchases). */
+  paid_installs: number;
+  meta_cpi: number | null;
+  network_purchase_value_usd: number;
+  meta_roas: number | null;
+  /** Our own: installs the decrypted Play referrer gives the ad, and their cohorts. */
+  installs: number;
+  cpi: number | null;
+  d1: number | null;
+  d7: number | null;
+  revenue_d7_usd: number;
+  revenue_usd: number;
+  roas_d7: number | null;
+  roas: number | null;
+  /** Enough of our own installs (300+) to judge the ad. */
+  reliable: boolean;
+  status?: string | null;
+  thumbnail_url?: string | null;
+  title?: string | null;
+  children: AdNode[];
+}
+
 export interface UaResponse {
   total: Pnl & { impressions: number; clicks: number; ctr: number | null };
   daily: (Pnl & { date: string })[];
   campaigns: CampaignRow[];
+  /** Campaign > ad set > ad, biggest spend first. Empty until the per-ad models are built. */
+  ads?: AdNode[];
   /** Top countries by spend, then one row with other: true for the rest. */
   countries: (Pnl & { country: string; other: boolean })[];
 }

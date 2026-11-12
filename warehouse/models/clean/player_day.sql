@@ -51,6 +51,10 @@ select
   countif(iap_revenue_usd is not null) as purchases,
   coalesce(sum(iap_revenue_usd), 0) as iap_revenue_gross_usd,
   coalesce(sum(iap_revenue_usd * (1 - store_fee)), 0) - coalesce(sum(refund_usd * (1 - store_fee)), 0) as iap_revenue_net_usd,
+  -- Per-player revenue for UA cohorts, whatever the game's revenue source (see clean_events).
+  coalesce(sum(player_ad_revenue_usd), 0) as player_ad_revenue_usd,
+  coalesce(sum(player_iap_revenue_net_usd), 0) as player_iap_revenue_net_usd,
+  countif(event_name in ('iap_purchase', 'in_app_purchase') and player_iap_revenue_net_usd > 0) as player_purchases,
   countif(event_name = 'store_view') as store_views,
   countif(event_name = 'offer_shown') as offers_shown,
 

@@ -1,8 +1,12 @@
 """Loads user acquisition (UA) spend into BigQuery before the dbt build: Meta (Facebook) Ads.
 
-One row per ad account, day, ad set and country, from the Meta Marketing API insights endpoint, with
-the spend converted to USD. Each ad set also carries the app it promotes (the store link of an app
-install campaign), so dbt can match the spend to a game and platform; see models/marts/kpi_ua_spend.sql.
+src_meta_ads_daily: one row per ad account, day, ad and country, from the Meta Marketing API insights
+endpoint, with the spend converted to USD and Meta's own count of installs and purchases. Each row also
+carries the app its ad set promotes (the store link of an app install campaign), so dbt can match the
+spend to a game and platform; see models/marts/kpi_ua_spend.sql.
+
+src_meta_ads: one row per ad (all statuses) with its ad set, campaign and creative (name, thumbnail,
+title, body), rewritten on every run. Names and thumbnails for the dashboard's ad rows.
 
   Meta Ads   Needs META_ACCESS_TOKEN (a system user token with ads_read) and META_AD_ACCOUNT_IDS
              (comma separated, with or without the act_ prefix). See docs/setup.md, "UA spend from Meta Ads".
@@ -41,6 +45,9 @@ LOOKBACK_DAYS = 7
 CHUNK_DAYS = 30  # one insights request per 30 days keeps each response small
 # Install actions, best first: the app install event Meta counts for app promotion campaigns.
 INSTALL_ACTIONS = ("mobile_app_install", "omni_app_install", "app_install")
+# Purchase actions, best first: in-app purchases logged by the Meta SDK (or sent to Meta) for the app.
+PURCHASE_ACTIONS = ("omni_purchase", "app_custom_event.fb_mobile_purchase", "mobile_app_purchase", "purchase")
+ADS_TABLE = "src_meta_ads"
 ADSET_STATUSES = ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "IN_PROCESS",
                   "WITH_ISSUES", "PENDING_REVIEW", "DISAPPROVED", "PREAPPROVED", "PENDING_BILLING_INFO"]
 
@@ -62,7 +69,31 @@ META_SCHEMA = [
     bigquery.SchemaField("spend_usd", "FLOAT"),
     bigquery.SchemaField("impressions", "INTEGER"),
     bigquery.SchemaField("clicks", "INTEGER"),
-    bigquery.SchemaField("installs", "INTEGER", description="app installs Meta attributes to the ad set (its attribution setting)"),
+    bigquery.SchemaField("installs", "INTEGER", description="app installs Meta attributes to the ad (its attribution setting)"),
+    bigquery.SchemaField("loaded_at", "TIMESTAMP"),
+    # Added with ad-level rows (rows loaded before that have no ad_id and are reloaded on the next run).
+    bigquery.SchemaField("ad_id", "STRING"),
+    bigquery.SchemaField("ad_name", "STRING"),
+    bigquery.SchemaField("purchases", "INTEGER", description="in-app purchases Meta attributes to the ad"),
+    bigquery.SchemaField("purchase_value", "FLOAT", description="their value in account_currency, as Meta reports it"),
+    bigquery.SchemaField("purchase_value_usd", "FLOAT"),
+]
+
+ADS_SCHEMA = [
+    bigquery.SchemaField("account_id", "STRING"),
+    bigquery.SchemaField("ad_id", "STRING"),
+    bigquery.SchemaField("ad_name", "STRING"),
+    bigquery.SchemaField("adset_id", "STRING"),
+    bigquery.SchemaField("campaign_id", "STRING"),
+    bigquery.SchemaField("effective_status", "STRING"),
+    bigquery.SchemaField("created_time", "TIMESTAMP"),
+    bigquery.SchemaField("creative_id", "STRING"),
+    bigquery.SchemaField("creative_name", "STRING"),
+    bigquery.SchemaField("thumbnail_url", "STRING", description="signed Meta CDN link; it expires, so it is reloaded every run"),
+    bigquery.SchemaField("title", "STRING"),
+    bigquery.SchemaField("body", "STRING"),
+    bigquery.SchemaField("video_id", "STRING"),
+    bigquery.SchemaField("object_type", "STRING"),
     bigquery.SchemaField("loaded_at", "TIMESTAMP"),
 ]
 
@@ -142,12 +173,17 @@ def adset_apps(meta: Meta, account: str) -> dict[str, dict]:
     return out
 
 
-def installs(actions: list[dict] | None) -> int:
+def first_action(actions: list[dict] | None, types: tuple[str, ...]) -> float:
+    """The value of the first action type in `types` that Meta reports (0 when none)."""
     by_type = {a.get("action_type"): a.get("value") for a in actions or []}
-    for t in INSTALL_ACTIONS:
+    for t in types:
         if by_type.get(t) is not None:
-            return int(float(by_type[t]))
-    return 0
+            return float(by_type[t])
+    return 0.0
+
+
+def installs(actions: list[dict] | None) -> int:
+    return int(first_action(actions, INSTALL_ACTIONS))
 
 
 def account_id(raw: str) -> str:
@@ -162,12 +198,12 @@ def load_account(meta: Meta, account: str, start: dt.date, end: dt.date, fx: Fx,
     while since <= end:
         until = min(end, since + dt.timedelta(days=CHUNK_DAYS - 1))
         params = {
-            "level": "adset",
+            "level": "ad",
             "time_increment": 1,
             "breakdowns": "country",
             "time_range": json.dumps({"since": since.isoformat(), "until": until.isoformat()}),
-            "fields": "account_id,account_currency,campaign_id,campaign_name,adset_id,adset_name,"
-                      "spend,impressions,clicks,actions",
+            "fields": "account_id,account_currency,campaign_id,campaign_name,adset_id,adset_name,ad_id,ad_name,"
+                      "spend,impressions,clicks,actions,action_values",
             "limit": 500,
         }
         for r in meta.pages(f"{account}/insights", params):
@@ -184,6 +220,7 @@ def load_account(meta: Meta, account: str, start: dt.date, end: dt.date, fx: Fx,
             currency = r.get("account_currency") or "USD"
             spend = float(r.get("spend") or 0)
             rate = fx.per_usd(currency, day)
+            purchase_value = first_action(r.get("action_values"), PURCHASE_ACTIONS)
             rows.append({
                 "report_date": day.isoformat(),
                 "account_id": r.get("account_id"),
@@ -204,6 +241,11 @@ def load_account(meta: Meta, account: str, start: dt.date, end: dt.date, fx: Fx,
                 "clicks": int(r.get("clicks") or 0),
                 "installs": installs(r.get("actions")),
                 "loaded_at": now,
+                "ad_id": r.get("ad_id"),
+                "ad_name": r.get("ad_name"),
+                "purchases": int(first_action(r.get("actions"), PURCHASE_ACTIONS)),
+                "purchase_value": purchase_value,
+                "purchase_value_usd": purchase_value / rate if rate else None,
             })
         since = until + dt.timedelta(days=1)
     missing = sum(1 for x in rows if x["spend_usd"] is None and x["spend"])
@@ -212,15 +254,72 @@ def load_account(meta: Meta, account: str, start: dt.date, end: dt.date, fx: Fx,
     return rows
 
 
+def add_missing_columns(bq: bigquery.Client, table_id: str, schema) -> None:
+    """Adds schema fields the table does not have yet (new columns are nullable)."""
+    table = bq.get_table(table_id)
+    have = {f.name for f in table.schema}
+    extra = [f for f in schema if f.name not in have]
+    if extra:
+        table.schema = list(table.schema) + extra
+        bq.update_table(table, ["schema"])
+        log(f"{table_id}: added columns {', '.join(f.name for f in extra)}")
+
+
+def meta_time(value: str | None) -> str | None:
+    """Meta's 2026-06-15T10:00:00+0000 as ISO 8601 that BigQuery loads."""
+    if not value:
+        return None
+    try:
+        return dt.datetime.strptime(value, "%Y-%m-%dT%H:%M:%S%z").isoformat()
+    except ValueError:
+        return None
+
+
+def ad_rows(meta: Meta, account: str, now: str) -> list[dict]:
+    """Every ad of the account with its creative."""
+    params = {
+        "fields": "id,name,adset_id,campaign_id,effective_status,created_time,"
+                  "creative{id,name,thumbnail_url,title,body,video_id,object_type}",
+        "limit": 200,
+        "thumbnail_width": 128,
+        "thumbnail_height": 128,
+        "filtering": json.dumps([{"field": "effective_status", "operator": "IN", "value": ADSET_STATUSES}]),
+    }
+    rows = []
+    for a in meta.pages(f"{account}/ads", params):
+        c = a.get("creative") or {}
+        rows.append({
+            "account_id": account.removeprefix("act_"),
+            "ad_id": a.get("id"),
+            "ad_name": a.get("name"),
+            "adset_id": a.get("adset_id"),
+            "campaign_id": a.get("campaign_id"),
+            "effective_status": a.get("effective_status"),
+            "created_time": meta_time(a.get("created_time")),
+            "creative_id": c.get("id"),
+            "creative_name": c.get("name"),
+            "thumbnail_url": c.get("thumbnail_url"),
+            "title": c.get("title"),
+            "body": c.get("body"),
+            "video_id": c.get("video_id"),
+            "object_type": c.get("object_type"),
+            "loaded_at": now,
+        })
+    return rows
+
+
 def load_meta(bq: bigquery.Client, dataset: str) -> None:
     table_id = ensure_table(bq, dataset, META_TABLE, META_SCHEMA, "report_date")
+    add_missing_columns(bq, table_id, META_SCHEMA)
+    ads_id = ensure_table(bq, dataset, ADS_TABLE, ADS_SCHEMA, None)
     meta = Meta(os.environ["META_ACCESS_TOKEN"])
     fx = Fx()
     now = dt.datetime.now(dt.timezone.utc).isoformat()
     end = dt.date.today()
     for account in [account_id(a) for a in os.environ["META_AD_ACCOUNT_IDS"].split(",") if a.strip()]:
+        # Rows from before ad-level loading have no ad_id: reload the whole history once.
         loaded = [x.d for x in bq.query(
-            f"select max(report_date) as d from `{table_id}` where account_id = @a",
+            f"select max(report_date) as d from `{table_id}` where account_id = @a and ad_id is not null",
             job_config=bigquery.QueryJobConfig(query_parameters=[
                 bigquery.ScalarQueryParameter("a", "STRING", account.removeprefix("act_"))])).result()][0]
         start = end - dt.timedelta(days=LOOKBACK_DAYS if loaded else BACKFILL_DAYS)
@@ -234,6 +333,14 @@ def load_meta(bq: bigquery.Client, dataset: str) -> None:
         unmatched = sum(x["spend_usd"] or 0 for x in rows if not x["app_store_id"])
         log(f"meta {account} {start}..{end}: {len(rows)} rows, ${spend:,.2f} spend"
             + (f" (${unmatched:,.2f} on ad sets that promote no app store link)" if unmatched else ""))
+        try:
+            ads = ad_rows(meta, account, now)
+        except RuntimeError as e:  # names and thumbnails are optional: keep the last good list
+            log(f"meta {account}: ad list failed, keeping the last one: {e}")
+            continue
+        replace_rows(bq, ads_id, ADS_SCHEMA, "account_id = @a", [
+            bigquery.ScalarQueryParameter("a", "STRING", account.removeprefix("act_"))], ads)
+        log(f"meta {account}: {len(ads)} ads")
 
 
 # --- main -----------------------------------------------------------------------------------
@@ -249,7 +356,8 @@ def main() -> int:
     bq = bigquery.Client(project=project, credentials=creds, location=location)
     bq.create_dataset(bigquery.Dataset(f"{project}.{dataset}"), exists_ok=True)
     # The table always exists, so the dbt models compile before Meta is set up.
-    ensure_table(bq, dataset, META_TABLE, META_SCHEMA, "report_date")
+    add_missing_columns(bq, ensure_table(bq, dataset, META_TABLE, META_SCHEMA, "report_date"), META_SCHEMA)
+    ensure_table(bq, dataset, ADS_TABLE, ADS_SCHEMA, None)
 
     if not (os.environ.get("META_ACCESS_TOKEN") and os.environ.get("META_AD_ACCOUNT_IDS")):
         log("meta: skipped, META_ACCESS_TOKEN / META_AD_ACCOUNT_IDS are not set")

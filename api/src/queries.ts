@@ -7,6 +7,10 @@ import {
   MIN_RELIABLE_COHORT,
   pnl,
   sumPnl,
+  adTree,
+  type AdCohortRow,
+  type AdInfo,
+  type AdSpendRow,
   type PnlInput,
   toTotals,
   daysBetween,
@@ -36,6 +40,15 @@ const PLATFORM_FILTER = `(@platform = 'all' OR platform = @platform) AND (@sourc
  * revenue (Google Play, AdMob) has no player and so no UA source.
  */
 const GEO_FILTER = `(@platform = 'all' OR platform = @platform) AND (@country = 'all' OR country = @country)`;
+
+/**
+ * For tables a newer model build adds: until the hourly build has made them, the dashboard shows
+ * the rest of the page instead of failing.
+ */
+const newTable = <T>(name: string) => (e: unknown): T[] => {
+  console.warn(`[kpi] ${name} not readable yet: ${e instanceof Error ? e.message : String(e)}`);
+  return [];
+};
 
 /** Countries listed one by one on the UA tab; the rest share a row. */
 const TOP_COUNTRIES = 15;
@@ -452,7 +465,11 @@ export class KpiService {
   async ua(gameId: string, r: Range) {
     const p = this.geoParams(r, gameId);
     const where = `game_id = @game AND ${GEO_FILTER}`;
-    const [dailyIncome, dailySpend, campaigns, countryIncome, countrySpend] = await Promise.all([
+    // Cohorts must be this old to count for D1 / D7 retention and D7 ROAS.
+    const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+    const mature1 = daysAgo(1);
+    const mature7 = daysAgo(7);
+    const [dailyIncome, dailySpend, campaigns, countryIncome, countrySpend, adSpend, adCohorts, adInfo] = await Promise.all([
       this.wh.query<Record<string, unknown> & { day: string }>(
         `SELECT event_date AS day, ${SUM_INCOME} FROM {{dataset}}.kpi_daily
          WHERE event_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY event_date`, p),
@@ -471,6 +488,31 @@ export class KpiService {
       this.wh.query<Record<string, unknown> & { country: string }>(
         `SELECT country, ${SUM_SPEND} FROM {{dataset}}.kpi_ua_spend
          WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} GROUP BY country`, p),
+      this.wh.query<AdSpendRow>(
+        `SELECT campaign_id, MAX(campaign_name) AS campaign_name, adset_id, MAX(adset_name) AS adset_name,
+                ad_id, MAX(ad_name) AS ad_name, ${SUM_SPEND},
+                SUM(IF(spend_date <= DATE(@mature7), spend_usd, 0)) AS spend_d7_usd,
+                SUM(network_purchases) AS network_purchases, SUM(network_purchase_value_usd) AS network_purchase_value_usd
+         FROM {{dataset}}.kpi_ua_spend
+         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND ${where} AND channel = 'meta'
+         GROUP BY campaign_id, adset_id, ad_id`, { ...p, mature7 }).catch(newTable<AdSpendRow>('kpi_ua_spend (ad level)')),
+      this.wh.query<AdCohortRow>(
+        `SELECT campaign_id, adset_id, ad_id,
+                SUM(IF(day_n = 0, active_players, 0)) AS installs,
+                SUM(IF(day_n = 0 AND install_date <= DATE(@mature1), active_players, 0)) AS installs_d1,
+                SUM(IF(day_n = 1 AND install_date <= DATE(@mature1), active_players, 0)) AS returned_d1,
+                SUM(IF(day_n = 0 AND install_date <= DATE(@mature7), active_players, 0)) AS installs_d7,
+                SUM(IF(day_n = 7 AND install_date <= DATE(@mature7), active_players, 0)) AS returned_d7,
+                SUM(IF(day_n <= 7 AND install_date <= DATE(@mature7), ad_revenue_usd + iap_revenue_net_usd, 0)) AS revenue_d7_usd,
+                SUM(ad_revenue_usd + iap_revenue_net_usd) AS revenue_usd
+         FROM {{dataset}}.kpi_ua_ad_cohort
+         WHERE install_date BETWEEN DATE(@from) AND DATE(@to) AND ${where}
+         GROUP BY campaign_id, adset_id, ad_id`, { ...p, mature1, mature7 }).catch(newTable<AdCohortRow>('kpi_ua_ad_cohort')),
+      this.wh.query<AdInfo>(
+        `SELECT ad_id, status, thumbnail_url, title FROM {{dataset}}.dim_ua_ads
+         WHERE ad_id IN (SELECT DISTINCT ad_id FROM {{dataset}}.kpi_ua_spend
+                         WHERE spend_date BETWEEN DATE(@from) AND DATE(@to) AND game_id = @game)`,
+        { from: r.from, to: r.to, game: gameId }).catch(newTable<AdInfo>('dim_ua_ads')),
     ]);
     const byKey = <T extends Record<string, unknown>>(rows: T[], key: keyof T) => {
       const m = new Map<string, T[]>();
@@ -524,6 +566,7 @@ export class KpiService {
         };
       }),
       countries,
+      ads: adTree(adSpend, adCohorts, adInfo),
     };
   }
 }

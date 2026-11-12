@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  adTree,
   blendedDay,
   cohortTable,
   daysBetween,
@@ -152,5 +153,51 @@ describe('integrationChecklist', () => {
   it('flags a game with no wrapper events', () => {
     const list = integrationChecklist([{ ...base, event_name: 'first_open', events_7d: 5, sources: ['firebase'] }]);
     expect(list.find((i) => i.group === 'wrapper')!.status).toBe('missing');
+  });
+});
+
+describe('adTree', () => {
+  const spend = (ad: string, adset: string, usd: number, d7 = usd) => ({
+    campaign_id: 'c1', campaign_name: 'Launch', adset_id: adset, adset_name: `Set ${adset}`, ad_id: ad, ad_name: `Ad ${ad}`,
+    spend_usd: usd, spend_d7_usd: d7, impressions: 1000, clicks: 10, paid_installs: 50, network_purchases: 1, network_purchase_value_usd: 5,
+  });
+  const cohort = (ad: string, adset: string, installs: number, d7Rev: number) => ({
+    campaign_id: 'c1', adset_id: adset, ad_id: ad, installs, installs_d1: installs, returned_d1: installs / 2,
+    installs_d7: installs, returned_d7: installs / 10, revenue_d7_usd: d7Rev, revenue_usd: d7Rev * 2,
+  });
+
+  it('nests ads under ad sets and campaigns with spend and our own cohorts', () => {
+    const tree = adTree([spend('a1', 's1', 100), spend('a2', 's1', 50), spend('a3', 's2', 30)],
+      [cohort('a1', 's1', 400, 80), cohort('a2', 's1', 100, 10), cohort('a4', 's2', 20, 1)],
+      [{ ad_id: 'a1', status: 'ACTIVE', thumbnail_url: 'https://x/t.png', title: 'Hi' }]);
+    expect(tree).toHaveLength(1);
+    const c = tree[0]!;
+    expect(c.name).toBe('Launch');
+    expect(c.spend_usd).toBe(180);
+    expect(c.installs).toBe(520);
+    expect(c.children.map((s) => s.id)).toEqual(['s1', 's2']);
+    const a1 = c.children[0]!.children[0]!;
+    expect(a1.id).toBe('a1');
+    expect(a1.cpi).toBeCloseTo(0.25);
+    expect(a1.meta_cpi).toBeCloseTo(2);
+    expect(a1.d1).toBeCloseTo(0.5);
+    expect(a1.roas_d7).toBeCloseTo(0.8);
+    expect(a1.meta_roas).toBeCloseTo(0.05);
+    expect(a1.reliable).toBe(true);
+    expect(a1.thumbnail_url).toBe('https://x/t.png');
+    expect(c.children[0]!.children[1]!.reliable).toBe(false);
+    // An ad with installs but no spend in the range is kept, without ROAS.
+    const a4 = c.children[1]!.children.find((a) => a.id === 'a4')!;
+    expect(a4.spend_usd).toBe(0);
+    expect(a4.roas_d7).toBeNull();
+    expect(a4.name).toBe('Ad a4');
+  });
+
+  it('gives no ROAS or retention without our own installs', () => {
+    const [c] = adTree([spend('a1', 's1', 100)], []);
+    expect(c!.roas_d7).toBeNull();
+    expect(c!.d1).toBeNull();
+    expect(c!.cpi).toBeNull();
+    expect(c!.meta_cpi).toBeCloseTo(2);
   });
 });

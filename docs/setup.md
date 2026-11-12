@@ -201,8 +201,11 @@ If a source fails, the job logs `load_revenue` with the error, and the build kee
 ## 8. UA spend from Meta Ads
 
 Before each build, `scripts/load_ua_costs.py` loads daily Meta (Facebook) Ads spend per ad account,
-ad set and country into `src_meta_ads_daily`, and dbt builds `kpi_ua_spend` (spend, impressions, clicks
-and Meta-reported installs per game, day, platform, country and campaign). It is the base for CPI and ROAS.
+ad and country into `src_meta_ads_daily`, and every ad with its creative (name, thumbnail, title, body)
+into `src_meta_ads`. dbt builds `kpi_ua_spend` (spend, impressions, clicks and Meta-reported installs and
+purchases per game, day, platform, country, campaign, ad set and ad) and `dim_ua_ads`. It is the base for
+CPI and ROAS. (Loads from before per-ad loading had ad set rows; the first run after the change reloads
+the whole history at ad level.)
 
 1. In Meta Business Settings (business.facebook.com/settings) → Users → **System users**, add a system user
    (for example `kpi-models`, role Employee).
@@ -223,6 +226,33 @@ Spend in another currency is converted to USD at that day's rate. Days follow th
 The first run loads the last 365 days, and later runs reload the last 7, because Meta keeps adding
 installs to a day. If the load fails, the job logs `load_ua_costs` with the error and the build keeps
 the last good load.
+
+### Retention and ROAS per campaign, ad set and ad
+
+Meta puts the campaign, ad set and ad of every click-through install into the Google Play install referrer,
+encrypted (`utm_content`). Firebase drops it (it is longer than Firebase's 100-character limit), so the
+wrappers send it themselves as `meta_install_referrer` (wrapper 0.2.0 and later), and
+`scripts/load_meta_referrers.py` decrypts it into `src_meta_install_referrers`. dbt builds
+`player_meta_ad` (each Meta player's campaign, ad set and ad) and `kpi_ua_ad_cohort` (installs, retention
+and revenue per ad and day since install). The UA & ROAS tab shows them in "Campaigns, ad sets and ads".
+
+1. For each game's Meta app: developers.facebook.com/apps → the app → **App settings → Basic** → the
+   **Android** section → **Install Referrer Decryption Key**. Copy its 64 hex characters.
+2. Set `META_REFERRER_KEYS` on the `kpi-models` service to `<meta app id>:<key>`, comma separated for
+   several apps (the app id is at the top of the same page).
+3. Ship a game build with wrapper 0.2.0 or later. Players who installed in the last ~90 days are
+   attributed too when they open the new build, while Google Play still has their referrer.
+4. For revenue per ad, link each game's **AdMob app to its Firebase project** (AdMob → Apps → the app →
+   App settings → Linked services → Firebase) and turn on impression-level ad revenue, and link the Google
+   Play app to Firebase. Firebase then logs `ad_impression` and `in_app_purchase` with their value per
+   player. These events are only used to split revenue by ad; the income totals still come from the Play
+   reports and the AdMob API.
+
+Referrers that arrive before the key is set are stored and decrypted once it is. The load logs how many
+were decrypted per game; "no key fits" means a wrong key or a Meta app that is not listed.
+
+Only Android click-through installs carry the referrer: iOS and view-through installs stay with Meta's
+own numbers (the "(Meta)" columns).
 
 ## 9. History from before the BigQuery export
 

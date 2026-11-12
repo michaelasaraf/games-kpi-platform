@@ -12,7 +12,7 @@ namespace GamesKpi
     /// </summary>
     public static partial class Kpi
     {
-        public const string SdkVersion = "unity-0.1.0";
+        public const string SdkVersion = "unity-0.2.0";
 
         /// <summary>Params the wrapper adds to every event (kpi_event_id, kpi_seq, kpi_sdk). Firebase keeps at most 25 per event.</summary>
         public const int EnvelopeParamCount = 3;

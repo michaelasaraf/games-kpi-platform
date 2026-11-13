@@ -31,7 +31,7 @@ activity as (
     count(*) as active_players,
     sum(pd.ad_revenue_usd) as ad_revenue_usd,
     sum(pd.iap_revenue_net_usd) as iap_revenue_net_usd,
-    countif(pd.purchases > 0) as payers,
+    countif({{ is_payer('pd') }}) as payers,
     sum(pd.playtime_sec) as playtime_sec
   from cohort_players as c
   join {{ ref('player_day') }} as pd

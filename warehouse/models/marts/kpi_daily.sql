@@ -25,7 +25,7 @@ select
   sum(rewarded_impressions) as rewarded_impressions,
   sum(interstitial_impressions) as interstitial_impressions,
   sum(banner_impressions) as banner_impressions,
-  countif(rewarded_impressions > 0) as rewarded_viewers,
+  countif({{ is_rewarded_viewer('pd') }}) as rewarded_viewers,
   sum(ad_revenue_usd) as ad_revenue_usd,
   sum(rewarded_revenue_usd) as rewarded_revenue_usd,
   sum(interstitial_revenue_usd) as interstitial_revenue_usd,
@@ -33,11 +33,11 @@ select
   sum(ad_offers_shown) as ad_offers_shown,
   sum(ad_offers_accepted) as ad_offers_accepted,
   sum(purchases) as purchases,
-  countif(purchases > 0) as payers,
+  countif({{ is_payer('pd') }}) as payers,
   sum(iap_revenue_gross_usd) as iap_revenue_gross_usd,
   sum(iap_revenue_net_usd) as iap_revenue_net_usd,
   countif(store_views > 0) as store_viewers,
-  countif(store_views > 0 and purchases > 0) as store_viewer_payers,
+  countif(store_views > 0 and {{ is_payer('pd') }}) as store_viewer_payers,
   countif(blocker_hits > 0) as blocked_players,
   sum(blocker_hits) as blocker_hits
 from {{ ref('player_day') }} as pd

@@ -45,6 +45,9 @@ select
   coalesce(sum(if(ad_format = 'rewarded', ad_revenue_usd, null)), 0) as rewarded_revenue_usd,
   coalesce(sum(if(ad_format = 'interstitial', ad_revenue_usd, null)), 0) as interstitial_revenue_usd,
   coalesce(sum(if(ad_format = 'banner', ad_revenue_usd, null)), 0) as banner_revenue_usd,
+  -- Rewarded ads watched to the reward, from the player's events whatever the ad revenue source
+  -- (rewarded_impressions above needs per-impression revenue, which admob_api games do not log).
+  countif(is_rewarded_view) as rewarded_views,
   countif(event_name = 'ad_offer_shown') as ad_offers_shown,
   countif(event_name = 'ad_offer_accepted') as ad_offers_accepted,
 
@@ -55,6 +58,8 @@ select
   coalesce(sum(player_ad_revenue_usd), 0) as player_ad_revenue_usd,
   coalesce(sum(player_iap_revenue_net_usd), 0) as player_iap_revenue_net_usd,
   countif(event_name in ('iap_purchase', 'in_app_purchase') and player_iap_revenue_net_usd > 0) as player_purchases,
+  -- Purchases by the player, whatever the IAP revenue source (see is_player_purchase).
+  countif(is_player_purchase) as player_purchase_events,
   countif(event_name = 'store_view') as store_views,
   countif(event_name = 'offer_shown') as offers_shown,
 

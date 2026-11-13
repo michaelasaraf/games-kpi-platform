@@ -59,6 +59,10 @@ with raw as (
     false as is_game_tutorial_step,
     cast(null as int64) as mapped_tutorial_step,
     {%- endif %}
+    -- Games whose own purchase event marks a payer (payer_events), for games without the wrapper's
+    -- iap_purchase or Firebase's in_app_purchase.
+    {%- set pe = g.get("payer_events", []) %}
+    {% if pe %}event_name in ({% for e in pe %}'{{ e }}'{% if not loop.last %}, {% endif %}{% endfor %}){% else %}false{% endif %} as is_game_purchase,
     event_name,
     event_timestamp,
     event_server_timestamp_offset,
@@ -201,6 +205,16 @@ flattened as (
       when event_name = 'app_store_refund' and iap_source != 'wrapper'
         then -coalesce(event_value_in_usd, 0) * (1 - store_fee)
     end as player_iap_revenue_net_usd,
+    -- A purchase by this player, whatever the game's revenue source: payer conversion counts
+    -- players, and the store reports behind play_reports have none.
+    (event_name = 'iap_purchase' and iap_source = 'wrapper')
+      or (event_name = 'in_app_purchase' and iap_source != 'wrapper')
+      or is_game_purchase as is_player_purchase,
+    -- A rewarded ad watched to the reward: the wrapper's / AdMob's ad_impression with ad_format
+    -- rewarded, or ad_reward, which the Google Mobile Ads SDK logs by itself on every earned reward
+    -- (also for games whose ad revenue comes from the AdMob API and have no ad_impression).
+    (event_name = 'ad_reward'
+      or (event_name = 'ad_impression' and lower({{ param_str('ad_format') }}) = 'rewarded')) as is_rewarded_view,
     store_fee
   from timed
 )

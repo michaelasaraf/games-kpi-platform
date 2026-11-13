@@ -25,6 +25,9 @@ vars:
   # How many days back each incremental run reprocesses. Firebase keeps updating a
   # day's export for up to 72 hours, so keep this at 3 or more.
   lookback_days: 3
+  # A player-day with more purchase events than this is a tester or a cheat (fake purchases),
+  # not a payer, in payer conversion and ARPPU.
+  payer_max_daily_purchases: 5
   # Earliest date read on a full refresh (YYYYMMDD).
   start_date: "20240101"
 
@@ -53,6 +56,8 @@ vars:
   #   meta_app_ids          optional: Meta (Facebook) app ids of the game, for Meta Ads spend whose ad sets
   #                         have no store link (spend is matched by package_name / extra_package_names first)
   #   meta_campaign_regex   optional: regex on Meta campaign names, for campaigns that promote no app
+  #   payer_events          optional: the game's own purchase event(s), for payer conversion when the game
+  #                         logs neither the wrapper's iap_purchase nor Firebase's in_app_purchase
   games:
     # Pilot (launched 2026-11-06). Unity, Android, AdMob without mediation, Unity IAP, Meta SDK.
     # Revenue comes from Google Play's sales reports and the AdMob API (Firebase has no revenue events for it).
@@ -71,6 +76,8 @@ vars:
       # Until the wrapper build ships, the game's own events: level = mine, tutorial = ftue_* with `step`.
       level_number_param: mine
       tutorial_step_events: {prefix: ftue_, extra: [mine1_complete]}
+      # No in_app_purchase in its export: payers come from the game's own `purchase` event.
+      payer_events: [purchase]
 
     # Trade Empire: Cargo Tycoon. Flutter, Android, AdMob mediation (Unity, Meta), Google Play IAP, Tenjin.
     # Revenue comes from Google Play's sales reports and the AdMob API.

@@ -40,7 +40,7 @@ select
   count(*) as active_players,
   sum(pd.player_ad_revenue_usd) as ad_revenue_usd,
   sum(pd.player_iap_revenue_net_usd) as iap_revenue_net_usd,
-  countif(pd.player_purchases > 0) as payers,
+  countif({{ is_payer('pd') }}) as payers,
   sum(pd.playtime_sec) as playtime_sec,
   any_value(s.cohort_size) as cohort_size
 from cohort_players as c

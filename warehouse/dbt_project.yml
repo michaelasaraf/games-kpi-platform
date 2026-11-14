@@ -44,6 +44,10 @@ vars:
   #                      | play_reports (Google Play sales reports: real orders only, no per-player split)
   #   ad_revenue_source  wrapper (our ad_impression) | firebase_auto (AdMob auto-logged ad_impression)
   #                      | admob_api (AdMob mediation report, every ad source, no per-player split)
+  #   player_ad_revenue_source  optional: where per-player ad revenue (cohort LTV, ROAS per campaign) comes
+  #                      from: wrapper (the game's own ad_impression from the ads SDK's paid callback) |
+  #                      firebase_auto (AdMob's auto-logged ad_impression). Default: wrapper when
+  #                      ad_revenue_source is wrapper, else firebase_auto. Daily totals still use ad_revenue_source.
   #   store_fee          share the store keeps, used for net IAP revenue (0.15 or 0.30)
   #   d1_target, d7_target  retention targets shown on the dashboard
   #   level_number_param    optional: the param that holds the level number, if not level_number
@@ -70,6 +74,9 @@ vars:
       package_name: com.tycoonstylegames.gemmine
       iap_source: play_reports
       ad_revenue_source: admob_api
+      # Per-player ad revenue from the game's own OnAdPaid ad_impression (gems-crafter, 2026-11-14):
+      # AdMob's link to Firebase never produced ad_impression events.
+      player_ad_revenue_source: wrapper
       store_fee: 0.15
       d1_target: 0.40
       d7_target: 0.15

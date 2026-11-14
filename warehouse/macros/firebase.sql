@@ -63,6 +63,9 @@ parse_date('%Y%m%d', '{{ var('start_date') }}')
   {%- if g.get('ad_revenue_source', 'wrapper') not in ['wrapper', 'firebase_auto', 'admob_api'] -%}
     {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': ad_revenue_source must be wrapper, firebase_auto or admob_api") }}
   {%- endif -%}
+  {%- if g.get('player_ad_revenue_source', 'wrapper') not in ['wrapper', 'firebase_auto'] -%}
+    {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': player_ad_revenue_source must be wrapper or firebase_auto") }}
+  {%- endif -%}
   {%- if (g.get('iap_source') == 'play_reports' or g.get('ad_revenue_source') == 'admob_api') and not g.get('package_name') -%}
     {{ exceptions.raise_compiler_error("game '" ~ g.game_id ~ "': play_reports and admob_api need package_name") }}
   {%- endif -%}

@@ -41,6 +41,10 @@ function RetentionView({ data, game }: { data: RetentionData; game: Game }) {
   const ltvX = useMemo(() => ltvPoints.map((c) => c.day), [ltvPoints]);
   const ltv = useMemo(() => [{ name: 'LTV per install', values: ltvPoints.map((c) => c.ltv), color: '--series-1' }], [ltvPoints]);
 
+  // The curve is already the size-weighted average over cohorts that have reached each day.
+  const byDay = useMemo(() => new Map(data.curve.map((c) => [c.day, c])), [data.curve]);
+  const totalInstalls = data.cohorts.reduce((sum, c) => sum + c.size, 0);
+
   if (data.cohorts.length === 0) return <p className="empty-state">No install cohorts in this range yet.</p>;
   return (
     <>
@@ -54,7 +58,10 @@ function RetentionView({ data, game }: { data: RetentionData; game: Game }) {
       </div>
       <div className="card section">
         <h2>Cohorts by install day</h2>
-        <p className="sub">Retention on day N. Empty cells have not happened yet. Data complete through {data.last_complete_date}.</p>
+        <p className="sub">
+          Retention on day N. Empty cells have not happened yet. Data complete through {data.last_complete_date}. The
+          average row weights each cohort by its installs, and on each day only counts cohorts that have reached that day.
+        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -66,6 +73,25 @@ function RetentionView({ data, game }: { data: RetentionData; game: Game }) {
               </tr>
             </thead>
             <tbody>
+              <tr className="average">
+                <td>Average</td>
+                <td>{fmt.int(totalInstalls)}</td>
+                {SHOWN_DAYS.slice(1).map((d) => {
+                  const s = byDay.get(d);
+                  const v = s?.retention ?? null;
+                  return (
+                    <td
+                      key={d}
+                      className={v == null ? 'empty' : 'heat'}
+                      style={heat(v)}
+                      title={s && v != null ? `${s.cohorts} cohorts, ${fmt.int(s.players)} installs` : undefined}
+                    >
+                      {v == null ? '' : fmt.pct(v, 0)}
+                    </td>
+                  );
+                })}
+                <td>{fmt.usd(byDay.get(7)?.ltv ?? null, 3)}</td>
+              </tr>
               {data.cohorts.map((c) => (
                 <tr key={c.install_date}>
                   <td>{c.install_date}</td>

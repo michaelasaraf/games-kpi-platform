@@ -73,7 +73,24 @@ function RetentionView({ data, game }: { data: RetentionData; game: Game }) {
               </tr>
             </thead>
             <tbody>
-              <tr className="average">
+              {data.cohorts.map((c) => (
+                <tr key={c.install_date}>
+                  <td>{c.install_date}</td>
+                  <td>{fmt.int(c.size)}</td>
+                  {SHOWN_DAYS.slice(1).map((d) => {
+                    const v = c.retention[d] ?? null;
+                    return (
+                      <td key={d} className={v == null ? 'empty' : 'heat'} style={heat(v)}>
+                        {v == null ? '' : fmt.pct(v, 0)}
+                      </td>
+                    );
+                  })}
+                  <td>{fmt.usd(c.ltv[7] ?? null, 3)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="total">
                 <td>Average</td>
                 <td>{fmt.int(totalInstalls)}</td>
                 {SHOWN_DAYS.slice(1).map((d) => {
@@ -92,22 +109,7 @@ function RetentionView({ data, game }: { data: RetentionData; game: Game }) {
                 })}
                 <td>{fmt.usd(byDay.get(7)?.ltv ?? null, 3)}</td>
               </tr>
-              {data.cohorts.map((c) => (
-                <tr key={c.install_date}>
-                  <td>{c.install_date}</td>
-                  <td>{fmt.int(c.size)}</td>
-                  {SHOWN_DAYS.slice(1).map((d) => {
-                    const v = c.retention[d] ?? null;
-                    return (
-                      <td key={d} className={v == null ? 'empty' : 'heat'} style={heat(v)}>
-                        {v == null ? '' : fmt.pct(v, 0)}
-                      </td>
-                    );
-                  })}
-                  <td>{fmt.usd(c.ltv[7] ?? null, 3)}</td>
-                </tr>
-              ))}
-            </tbody>
+            </tfoot>
           </table>
         </div>
       </div>

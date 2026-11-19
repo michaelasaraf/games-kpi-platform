@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Filters } from '../api';
 import { Chart, type Series } from '../components/Chart';
+import { provisionalIndex, useProvisionalFrom } from '../components/provisional';
 import { Card, Loadable, useApi } from '../components/ui';
 import { fmt } from '../format';
 
@@ -51,6 +52,7 @@ function CompareCharts({ data }: { data: CompareData }) {
   );
   const dates = useMemo(() => [...new Set(data.games.flatMap((g) => g.daily.map((d) => d.date)))].sort(), [data]);
   const x = useMemo(() => dates.map((d) => d.slice(5)), [dates]);
+  const prov = provisionalIndex(dates, useProvisionalFrom());
   const daily = useMemo(() => {
     const pick = (key: 'dau' | 'arpdau' | 'playtime_min_per_dau'): Series[] =>
       data.games.map((g, i) => {
@@ -79,13 +81,13 @@ function CompareCharts({ data }: { data: CompareData }) {
           title="ARPDAU"
           sub={`Revenue per daily active player (ads + IAP net of store fee). Not complete yet: IAP reads $0 until the Google Play reports load, so this is mostly ad revenue from AdMob. Store revenue has no UA source, so it drops out when a UA source filter is set. Days with fewer than ${MIN_PLAYERS} players are left out.`}
         >
-          <Chart x={x} series={daily.arpdau} format={usd} />
+          <Chart x={x} series={daily.arpdau} format={usd} provisionalFrom={prov} />
         </Card>
         <Card title="Playtime per DAU" sub={`Minutes played per daily active player. Days with fewer than ${MIN_PLAYERS} players are left out.`}>
-          <Chart x={x} series={daily.playtime} format={minutes} />
+          <Chart x={x} series={daily.playtime} format={minutes} provisionalFrom={prov} />
         </Card>
         <Card title="Daily active players">
-          <Chart x={x} series={daily.dau} format={fmt.int} />
+          <Chart x={x} series={daily.dau} format={fmt.int} provisionalFrom={prov} />
         </Card>
       </div>
     </div>

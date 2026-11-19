@@ -22,9 +22,14 @@ models:
       +schema: null
 
 vars:
-  # How many days back each incremental run reprocesses. Firebase keeps updating a
-  # day's export for up to 72 hours, so keep this at 3 or more.
-  lookback_days: 3
+  # How many days back each incremental run reprocesses. Firebase keeps adding late events to a
+  # day's export for about 3 days after the day ends (measured 2026-11-19: up to 82 hours for Gem Mine
+  # and Business Empire), and a UTC day spans two export days, so keep this at 5 or more.
+  # Anything older is still picked up by the nightly full rebuild (FULL_REFRESH_HOUR_UTC in run.sh).
+  lookback_days: 5
+  # Recent days the dashboard marks as provisional (still filling in with late events): today and the
+  # last `settle_days` days. A game can override it with its own settle_days.
+  settle_days: 3
   # A player-day with more purchase events than this is a tester or a cheat (fake purchases),
   # not a payer, in payer conversion and ARPPU.
   payer_max_daily_purchases: 5
@@ -56,6 +61,9 @@ vars:
   #   meta_app_ids          optional: Meta (Facebook) app ids of the game, for Meta Ads spend whose ad sets
   #                         have no store link (spend is matched by package_name / extra_package_names first)
   #   meta_campaign_regex   optional: regex on Meta campaign names, for campaigns that promote no app
+  #   settle_days           optional: days a day's numbers keep changing after it ends (default var
+  #                         settle_days). Games with the Daily export settle in ~3 days; games with only
+  #                         the Streaming export stop changing a few hours after midnight.
   #   payer_events          optional: the game's own purchase event(s), for payer conversion when the game
   #                         logs neither the wrapper's iap_purchase nor Firebase's in_app_purchase
   games:
@@ -94,6 +102,9 @@ vars:
       d1_target: 0.40
       d7_target: 0.15
       level_number_param: level
+      # Only the Streaming (intraday) export is linked: a day stops changing ~6 hours after it ends,
+      # and events that phones send later never arrive. Back to 3 if the Daily export is turned on.
+      settle_days: 1
       # tutorial_step_completed carries step_name only; the numbers follow the game's TutorialStep order
       # (lib/models/tutorial.dart, analyticsName).
       tutorial_step_events:

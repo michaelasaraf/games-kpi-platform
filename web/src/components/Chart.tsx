@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart } from 'echarts/charts';
-import { GridComponent, LegendComponent, TooltipComponent, MarkLineComponent } from 'echarts/components';
+import { GridComponent, LegendComponent, TooltipComponent, MarkLineComponent, MarkAreaComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
-echarts.use([LineChart, BarChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent, CanvasRenderer]);
+echarts.use([LineChart, BarChart, GridComponent, LegendComponent, TooltipComponent, MarkLineComponent, MarkAreaComponent, CanvasRenderer]);
 
 export interface Series {
   name: string;
@@ -24,6 +24,8 @@ interface Props {
   xName?: string;
   /** Numeric x (e.g. days since install): spaced to scale, labelled with this formatter. */
   numericX?: (v: number) => string;
+  /** Index into x of the first provisional day (still filling in with late events): shaded to the end. */
+  provisionalFrom?: number;
 }
 
 function cssVar(name: string) {
@@ -31,7 +33,7 @@ function cssVar(name: string) {
 }
 
 /** One-axis line or bar chart with a crosshair tooltip, themed from the CSS tokens. */
-export function Chart({ x, series, format, height = 260, target, xName, numericX }: Props) {
+export function Chart({ x, series, format, height = 260, target, xName, numericX, provisionalFrom }: Props) {
   const el = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -101,6 +103,15 @@ export function Chart({ x, series, format, height = 260, target, xName, numericX
                     data: [{ yAxis: target.value }],
                   }
                 : undefined,
+            markArea:
+              provisionalFrom != null && !numericX && i === 0 && x.length > 0
+                ? {
+                    silent: true,
+                    itemStyle: { color: cssVar('--provisional') },
+                    label: { formatter: 'Provisional', color: muted, position: 'insideTop', fontSize: 11 },
+                    data: [[{ xAxis: x[provisionalFrom] }, { xAxis: x[x.length - 1] }]],
+                  }
+                : undefined,
           })),
         },
         true,
@@ -116,7 +127,7 @@ export function Chart({ x, series, format, height = 260, target, xName, numericX
       media.removeEventListener('change', draw);
       chart.dispose();
     };
-  }, [x, series, format, target, xName, numericX]);
+  }, [x, series, format, target, xName, numericX, provisionalFrom]);
 
   return <div ref={el} style={{ width: '100%', height }} role="img" aria-label={series.map((s) => s.name).join(', ')} />;
 }

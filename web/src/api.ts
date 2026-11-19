@@ -50,6 +50,10 @@ export interface Game {
   engine: string;
   d1_target: number;
   d7_target: number;
+  /** Days a day's numbers keep changing after it ends (late Firebase events). */
+  settle_days: number;
+  /** First UTC day still provisional (YYYY-MM-DD). */
+  provisional_from: string;
 }
 
 export interface Filters {

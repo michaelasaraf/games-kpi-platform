@@ -1,5 +1,6 @@
 import type { Pnl } from '../api';
 import { fmt } from '../format';
+import { PROVISIONAL_NOTE, useProvisionalFrom } from './provisional';
 
 /** Money in red when negative and green when positive, so a loss is visible at a glance. */
 export function Money({ v, digits = 0 }: { v: number | null | undefined; digits?: number }) {
@@ -45,10 +46,15 @@ function withRunningNet<T extends Pnl & { date: string }>(rows: T[]): (T & { run
 
 /** Profit and loss per day, newest first, with a running net and a total row. */
 export function DailyPnl({ rows, total, who }: { rows: (Pnl & { date: string })[]; total: Pnl; who: string }) {
+  const from = useProvisionalFrom();
+  const isProvisional = (date: string) => from != null && date >= from;
   return (
     <>
       <h2 style={{ marginTop: 28 }}>Profit and loss per day</h2>
-      <p className="sub">{who}, newest day first. Running net adds up income − UA spend from the first day of the range to that day.</p>
+      <p className="sub">
+        {who}, newest day first. Running net adds up income − UA spend from the first day of the range to that day.
+        {rows.some((r) => isProvisional(r.date)) && ` ${PROVISIONAL_NOTE}`}
+      </p>
       <div className="table-wrap">
         <table>
           <thead>
@@ -56,7 +62,8 @@ export function DailyPnl({ rows, total, who }: { rows: (Pnl & { date: string })[
           </thead>
           <tbody>
             {withRunningNet(rows).map((d) => (
-              <tr key={d.date}><td>{d.date}</td><PnlCells p={d} /><td><strong><Money v={d.running_net_usd} /></strong></td></tr>
+              <tr key={d.date} className={isProvisional(d.date) ? 'provisional' : undefined}>
+                <td>{d.date}{isProvisional(d.date) && <span className="badge warn" title={PROVISIONAL_NOTE}>{" · provisional"}</span>}</td><PnlCells p={d} /><td><strong><Money v={d.running_net_usd} /></strong></td></tr>
             ))}
           </tbody>
           <tfoot>

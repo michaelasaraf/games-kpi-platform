@@ -10,6 +10,9 @@ select
   '{{ g.get("ad_revenue_source", "wrapper") }}' as ad_revenue_source,
   cast({{ g.get("store_fee", 0.15) }} as float64) as store_fee,
   cast({{ g.get("d1_target", 0.40) }} as float64) as d1_target,
-  cast({{ g.get("d7_target", 0.15) }} as float64) as d7_target
+  cast({{ g.get("d7_target", 0.15) }} as float64) as d7_target,
+  -- Days a day's numbers keep changing after it ends (late Firebase events): the dashboard marks
+  -- today and the last settle_days days as provisional.
+  cast({{ g.get("settle_days", var("settle_days")) }} as int64) as settle_days
 {% if not loop.last %}union all{% endif %}
 {%- endfor %}

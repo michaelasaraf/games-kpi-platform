@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { countryLabel, type Filters, type Game, type UaResponse } from '../api';
 import { Chart } from '../components/Chart';
+import { provisionalIndex, useProvisionalFrom } from '../components/provisional';
 import { Card, Loadable, Tile, useApi } from '../components/ui';
 import { fmt } from '../format';
 import { DailyPnl, Money, PnlCells, PNL_HEADERS, Roas } from '../components/Pnl';
@@ -99,6 +100,7 @@ export function UaPage({ game, filters }: { game: Game; filters: Filters }) {
 
 function UaCharts({ rows }: { rows: UaResponse['daily'] }) {
   const x = useMemo(() => rows.map((r) => r.date.slice(5)), [rows]);
+  const prov = provisionalIndex(rows.map((r) => r.date), useProvisionalFrom());
   const money = useMemo(() => [
     { name: 'Income', values: rows.map((r) => r.income_usd), color: '--series-3' },
     { name: 'UA spend', values: rows.map((r) => r.spend_usd), color: '--series-2' },
@@ -110,8 +112,8 @@ function UaCharts({ rows }: { rows: UaResponse['daily'] }) {
   if (rows.length === 0) return null;
   return (
     <div className="grid two section">
-      <Card title="Daily income and UA spend"><Chart x={x} series={money} format={(v) => fmt.usd(v, 0)} /></Card>
-      <Card title="Daily CPI"><Chart x={x} series={cpi} format={(v) => fmt.usd(v, 2)} /></Card>
+      <Card title="Daily income and UA spend"><Chart x={x} series={money} format={(v) => fmt.usd(v, 0)} provisionalFrom={prov} /></Card>
+      <Card title="Daily CPI"><Chart x={x} series={cpi} format={(v) => fmt.usd(v, 2)} provisionalFrom={prov} /></Card>
     </div>
   );
 }

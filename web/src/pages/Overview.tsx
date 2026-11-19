@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { sourceLabel, type DailyRow, type DayStat, type Filters, type Game, type SourceRow, type Summary } from '../api';
 import { Chart } from '../components/Chart';
+import { PROVISIONAL_NOTE, provisionalIndex, useProvisionalFrom } from '../components/provisional';
 import { Card, Loadable, Tile, useApi, vsTarget } from '../components/ui';
 import { fmt } from '../format';
 import { GamePnl } from './Ua';
@@ -44,6 +45,8 @@ export function Overview({ game, filters }: { game: Game; filters: Filters }) {
 
 function DailyCharts({ rows }: { rows: DailyRow[] }) {
   const x = useMemo(() => rows.map((r) => r.date.slice(5)), [rows]);
+  const from = useProvisionalFrom();
+  const prov = provisionalIndex(rows.map((r) => r.date), from);
   const dau = useMemo(() => [
     { name: 'DAU', values: rows.map((r) => r.avg_dau), color: '--series-1' },
   ], [rows]);
@@ -60,12 +63,15 @@ function DailyCharts({ rows }: { rows: DailyRow[] }) {
 
   if (rows.length === 0) return <p className="empty-state">No data for this range yet.</p>;
   return (
-    <div className="grid two section">
-      <Card title="Daily active players"><Chart x={x} series={dau} format={fmt.int} /></Card>
-      <Card title="Installs"><Chart x={x} series={installs} format={fmt.int} /></Card>
-      <Card title="ARPDAU by source" sub="Revenue per daily active player, ads and IAP (net of store fee)"><Chart x={x} series={arpdau} format={(v) => fmt.usd(v, 3)} /></Card>
-      <Card title="Playtime per DAU"><Chart x={x} series={playtime} format={(v) => fmt.num(v)} /></Card>
-    </div>
+    <>
+      {prov != null && <p className="sub section provisional-note">{PROVISIONAL_NOTE}</p>}
+      <div className="grid two section">
+        <Card title="Daily active players"><Chart x={x} series={dau} format={fmt.int} provisionalFrom={prov} /></Card>
+        <Card title="Installs"><Chart x={x} series={installs} format={fmt.int} provisionalFrom={prov} /></Card>
+        <Card title="ARPDAU by source" sub="Revenue per daily active player, ads and IAP (net of store fee)"><Chart x={x} series={arpdau} format={(v) => fmt.usd(v, 3)} provisionalFrom={prov} /></Card>
+        <Card title="Playtime per DAU"><Chart x={x} series={playtime} format={(v) => fmt.num(v)} provisionalFrom={prov} /></Card>
+      </div>
+    </>
   );
 }
 

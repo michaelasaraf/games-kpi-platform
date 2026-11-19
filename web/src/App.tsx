@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, countryLabel, getToken, setToken, sourceLabel, type Filters, type Game } from './api';
+import { ProvisionalContext } from './components/provisional';
 import { Loadable, useApi } from './components/ui';
 import { daysBefore, yesterday } from './format';
 import { Economy } from './pages/Economy';
@@ -191,11 +192,15 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
       <Loadable state={games}>
         {(list) => {
           const game = list.find((g) => g.game_id === view.game) ?? null;
+          // One game: its own provisional days. All games: the earliest, so no game's are shown as final.
+          const provisionalFrom = game
+            ? game.provisional_from ?? null
+            : list.map((g) => g.provisional_from).filter(Boolean).sort()[0] ?? null;
           if (list.length === 0) {
             return <p className="empty-state">You don't have access to any game yet. Ask an admin to add your email.</p>;
           }
           return (
-            <>
+            <ProvisionalContext.Provider value={provisionalFrom}>
               <div className="filters" role="toolbar" aria-label="Filters">
                 <select className="control" aria-label="Game" value={game?.game_id ?? ''} onChange={(e) => update({ game: e.target.value || null })}>
                   <option value="">All games</option>
@@ -251,7 +256,7 @@ function Dashboard({ onSignOut }: { onSignOut: () => void }) {
                   {view.tab === 'integration' && <IntegrationPage game={game} />}
                 </>
               )}
-            </>
+            </ProvisionalContext.Provider>
           );
         }}
       </Loadable>

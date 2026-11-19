@@ -21,5 +21,13 @@ timeout 10m python scripts/load_ua_costs.py || echo "load_ua_costs failed: build
 timeout 5m python scripts/load_meta_referrers.py || echo "load_meta_referrers failed: building with the last good referrer load"
 # Daily totals from before each game's BigQuery export (GA4 Data API, Play install stats). Same rule.
 timeout 10m python scripts/load_history.py || echo "load_history failed: building with the last good history load"
+# Once a night every model is rebuilt from scratch, so events (and store revenue) that arrive later
+# than the incremental lookback still land in the right day. The hour is UTC; "off" disables it.
+# The default 0 is hit by both the hourly and an every-6-hours schedule.
+FULL_REFRESH_HOUR_UTC="${FULL_REFRESH_HOUR_UTC:-0}"
+if [ "$FULL_REFRESH_HOUR_UTC" != "off" ] && [ "$(date -u +%-H)" -eq "$FULL_REFRESH_HOUR_UTC" ]; then
+  echo "Nightly full refresh"
+  set -- --full-refresh "$@"
+fi
 # Hard stop well before the next hourly run, so one stuck run can never block the schedule.
 exec timeout --kill-after=1m 40m dbt build --profiles-dir . "$@"

@@ -21,6 +21,8 @@
   --good-text: #006300;
   --warning: #fab219;
   --critical: #d03b3b;
+  /* Shading behind recent days whose numbers are still filling in (late Firebase events). */
+  --provisional: rgba(11, 11, 11, 0.045);
   --seq-0: #f0efec;
   --seq-1: #cde2fb;
   --seq-2: #9ec5f4;
@@ -52,6 +54,7 @@
     --series-5: #d6a024;
     --series-6: #e2608f;
     --good-text: #0ca30c;
+    --provisional: rgba(255, 255, 255, 0.06);
     --seq-0: #383835;
     --seq-1: #104281;
     --seq-2: #184f95;
@@ -126,6 +129,8 @@ h2 { font-size: 15px; font-weight: 650; margin: 0 0 4px; }
 .badge.good { color: var(--good-text); }
 .badge.bad { color: var(--critical); }
 .badge.warn { color: var(--text-secondary); }
+tr.provisional td .badge { font-weight: 500; color: var(--text-muted); }
+.provisional-note { margin-bottom: -8px; }
 h2.section-title { font-size: 16px; margin: 0 0 12px; }
 .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; margin-right: 8px; vertical-align: middle; }
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }

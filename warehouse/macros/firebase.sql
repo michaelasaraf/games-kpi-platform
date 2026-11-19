@@ -18,11 +18,14 @@
  from unnest(event_params) as p where p.key = '{{ key }}' limit 1)
 {%- endmacro %}
 
-{#- Earliest export table suffix (YYYYMMDD) this run reads. Incremental runs read the
-    last `lookback_days` days; a full refresh reads from var('start_date'). -#}
+{#- Earliest export table suffix (YYYYMMDD) this run reads. Incremental runs read one day more
+    than they rewrite: export tables follow the Firebase property's own day, so for a property
+    behind UTC the first rewritten UTC day also has events in the table before it, and leaving
+    that table out would overwrite the day with part of its events. A full refresh reads from
+    var('start_date'). -#}
 {% macro start_suffix() -%}
 {%- if is_incremental() -%}
-format_date('%Y%m%d', date_sub(current_date(), interval {{ var('lookback_days') }} day))
+format_date('%Y%m%d', date_sub(current_date(), interval {{ var('lookback_days') + 1 }} day))
 {%- else -%}
 '{{ var('start_date') }}'
 {%- endif -%}

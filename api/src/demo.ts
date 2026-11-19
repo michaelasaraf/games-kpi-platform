@@ -56,7 +56,7 @@ function generate() {
 
   const adIds = new Set<string>();
   for (const g of GAMES) {
-    tables.dim_games!.push({ game_id: g.game_id, name: g.name, engine: g.engine, timezone: 'UTC', d1_target: 0.4, d7_target: 0.15 });
+    tables.dim_games!.push({ game_id: g.game_id, name: g.name, engine: g.engine, timezone: 'UTC', d1_target: 0.4, d7_target: 0.15, settle_days: 3 });
     const retention = (n: number) => (n === 0 ? 1 : g.d1 * Math.pow(n, -g.decay));
 
     for (const platform of g.platforms) {

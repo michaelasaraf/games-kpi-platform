@@ -79,14 +79,36 @@ export function lastCompleteDate(now = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Days a day keeps changing after it ends, for a dim_games without settle_days. */
+export const DEFAULT_SETTLE_DAYS = 3;
+
+/** First UTC day still provisional: today minus settle_days (today itself is always provisional). */
+export function provisionalFrom(settleDays: number, now = new Date()): string {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - Math.max(0, settleDays)));
+  return d.toISOString().slice(0, 10);
+}
+
 export class KpiService {
   constructor(private readonly wh: Warehouse, private readonly now: () => Date = () => new Date()) {}
 
-  games() {
-    return this.wh.query<{
+  /**
+   * The games, each with the first day whose numbers are still provisional: Firebase keeps adding
+   * late events to a day for a few days after it ends (settle_days, from dbt_project.yml).
+   */
+  async games() {
+    // SELECT *: a dim_games built before settle_days existed still works (the default applies).
+    const rows = await this.wh.query<{
       game_id: string; name: string; engine: string; timezone: string;
-      d1_target: number; d7_target: number;
-    }>(`SELECT game_id, name, engine, timezone, d1_target, d7_target FROM {{dataset}}.dim_games ORDER BY name`);
+      d1_target: number; d7_target: number; settle_days?: number | null;
+    }>(`SELECT * FROM {{dataset}}.dim_games ORDER BY name`);
+    return rows.map(({ game_id, name, engine, timezone, d1_target, d7_target, settle_days }) => {
+      const settle = settle_days == null ? DEFAULT_SETTLE_DAYS : Number(settle_days);
+      return {
+        game_id, name, engine, timezone, d1_target, d7_target,
+        settle_days: settle,
+        provisional_from: provisionalFrom(settle, this.now()),
+      };
+    });
   }
 
   platforms(gameId: string) {

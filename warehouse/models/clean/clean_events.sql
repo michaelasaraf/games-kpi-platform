@@ -2,9 +2,9 @@
   One row per event for all games: the per-game Firebase exports unioned, game_id stamped,
   the params we use flattened into columns, and duplicates removed.
 
-  Incremental runs rewrite only the last `lookback_days` days (Firebase keeps updating a
-  day's export for up to 72 hours). Events whose game-local date is older than that are
-  ignored until the next full refresh (`dbt build --full-refresh`).
+  Incremental runs rewrite only the last `lookback_days` days (Firebase keeps adding late
+  events to a day's export for about 3 days after it ends). Events that land even later are
+  picked up by the next full refresh, which run.sh does every night.
 -#}
 {{
   config(

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { DailyRow, Filters, Game, Summary } from '../api';
 import { Chart } from '../components/Chart';
+import { provisionalIndex, useProvisionalFrom } from '../components/provisional';
 import { Card, Loadable, Tile, useApi } from '../components/ui';
 import { fmt } from '../format';
 
@@ -46,6 +47,7 @@ export function Monetization({ game, filters }: { game: Game; filters: Filters }
 
 function MoneyCharts({ rows }: { rows: DailyRow[] }) {
   const x = useMemo(() => rows.map((r) => r.date.slice(5)), [rows]);
+  const prov = provisionalIndex(rows.map((r) => r.date), useProvisionalFrom());
   const revenue = useMemo(() => [
     { name: 'Ads', values: rows.map((r) => r.ad_revenue_usd), color: '--series-1' },
     { name: 'IAP (net)', values: rows.map((r) => r.iap_revenue_net_usd), color: '--series-2' },
@@ -58,8 +60,8 @@ function MoneyCharts({ rows }: { rows: DailyRow[] }) {
   if (rows.length === 0) return null;
   return (
     <div className="grid two section">
-      <Card title="Daily revenue by source"><Chart x={x} series={revenue} format={(v) => fmt.usd(v, 0)} /></Card>
-      <Card title="eCPM by format"><Chart x={x} series={ecpm} format={(v) => fmt.usd(v, 2)} /></Card>
+      <Card title="Daily revenue by source"><Chart x={x} series={revenue} format={(v) => fmt.usd(v, 0)} provisionalFrom={prov} /></Card>
+      <Card title="eCPM by format"><Chart x={x} series={ecpm} format={(v) => fmt.usd(v, 2)} provisionalFrom={prov} /></Card>
     </div>
   );
 }

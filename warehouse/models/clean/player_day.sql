@@ -68,3 +68,7 @@ select
 from {{ ref('clean_events') }}
 where event_date >= {{ start_date_expr() }}
 group by game_id, event_date, player_id
+-- A day with only events Firebase logs without the player opening the game (Android sends app_remove
+-- on uninstall, os_update / app_update / app_clear_data in the background) is not an active day:
+-- counting it inflated DAU by 6-11% and counted an uninstall as a retained day (2026-11-23).
+having countif(event_name not in ('app_remove', 'app_clear_data', 'os_update', 'app_update')) > 0

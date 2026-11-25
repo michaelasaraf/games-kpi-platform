@@ -1,0 +1,27 @@
+{
+  "name": "GamesSdk.AdMob",
+  "rootNamespace": "GamesSdk.AdMob",
+  "references": [
+    "GamesSdk"
+  ],
+  "includePlatforms": [
+    "Android",
+    "iOS"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "GAMES_SDK_ADMOB"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.google.ads.mobile",
+      "expression": "9.0.0",
+      "define": "GAMES_SDK_ADMOB"
+    }
+  ],
+  "noEngineReferences": false
+}

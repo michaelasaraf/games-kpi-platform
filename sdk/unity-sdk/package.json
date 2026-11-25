@@ -1,0 +1,8 @@
+{
+  "name": "com.gameskpi.sdk",
+  "version": "0.1.0",
+  "displayName": "Games SDK",
+  "description": "One integration for every game: AdMob with mediation (Unity Ads, Meta Audience Network), Firebase Analytics through the Games KPI wrapper, and Crashlytics. Needs com.gameskpi.analytics (sdk/unity in the same repository). Tools > Games SDK > Install Dependencies adds the pinned Google packages.",
+  "unity": "2021.3",
+  "author": { "name": "Games KPI" }
+}

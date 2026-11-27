@@ -27,6 +27,8 @@ with raw as (
     '{{ g.get("timezone", "UTC") }}' as tz,
     '{{ g.get("iap_source", "wrapper") }}' as iap_source,
     '{{ g.get("ad_revenue_source", "wrapper") }}' as ad_revenue_source,
+    {%- set ars = g.get("ad_revenue_source", "wrapper") %}
+    '{{ g.get("player_ad_revenue_source", "wrapper" if ars == "wrapper" else "firebase_auto") }}' as player_ad_revenue_source,
     {{ g.get("store_fee", 0.15) }} as store_fee,
     starts_with(_TABLE_SUFFIX, 'intraday_') as from_intraday,
     -- Games that predate the catalog can map their own params (see level_number_param and
@@ -194,8 +196,8 @@ flattened as (
     -- The KPI totals above stay as they are.
     case
       when event_name = 'ad_impression'
-       and ((ad_revenue_source = 'wrapper' and kpi_event_id is not null)
-         or (ad_revenue_source != 'wrapper' and kpi_event_id is null))
+       and ((player_ad_revenue_source = 'wrapper' and kpi_event_id is not null)
+         or (player_ad_revenue_source = 'firebase_auto' and kpi_event_id is null))
         then coalesce(event_value_in_usd, 0)
     end as player_ad_revenue_usd,
     case

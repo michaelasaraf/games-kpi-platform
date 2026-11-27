@@ -1,0 +1,33 @@
+{
+  "name": "GamesSdk.Firebase",
+  "rootNamespace": "GamesSdk.FirebaseSupport",
+  "references": [
+    "GamesSdk",
+    "GamesKpi"
+  ],
+  "includePlatforms": [
+    "Android",
+    "iOS"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [
+    "GAMES_SDK_FIREBASE"
+  ],
+  "versionDefines": [
+    {
+      "name": "com.google.firebase.analytics",
+      "expression": "12.0.0",
+      "define": "GAMES_SDK_FIREBASE"
+    },
+    {
+      "name": "com.google.firebase.crashlytics",
+      "expression": "12.0.0",
+      "define": "GAMES_SDK_CRASHLYTICS"
+    }
+  ],
+  "noEngineReferences": false
+}

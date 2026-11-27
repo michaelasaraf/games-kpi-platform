@@ -21,6 +21,7 @@ Game (Unity / Flutter)
 | `catalog/events.yaml` | The event catalog. The single source of truth for event names and params. |
 | `tools/codegen` | Turns the catalog into the Unity and Flutter event methods and `docs/event-catalog.md`. |
 | `sdk/unity` | Unity package (`com.gameskpi.analytics`): `Kpi.Init`, consent, typed events. |
+| `sdk/unity-sdk` | Games SDK (`com.gameskpi.sdk`): AdMob + mediation, Firebase through the wrapper, Crashlytics, in one package. See [docs/games-sdk.md](docs/games-sdk.md). |
 | `sdk/flutter` | Dart package (`games_kpi`): `Kpi.init`, consent, typed events in `KpiEvents`. |
 | `warehouse` | dbt project: cleans every game's Firebase export and builds the KPI tables. Runs as a Railway cron. |
 | `api` | Fastify API: Google sign-in, per-game access, cached BigQuery queries. Also serves the web build. |
@@ -64,6 +65,7 @@ Only add events or optional params; renaming or removing one breaks games alread
 | Web | `cd web && npm run build && npm run lint` |
 | Warehouse | `cd warehouse && dbt parse --profiles-dir . && python scripts/check_sql.py` |
 | Unity wrapper | `sdk/unity/Tests~/run.sh` (needs mono) |
+| Games SDK | `sh sdk/unity-sdk/Tests~/run.sh` (needs mono) |
 | Flutter wrapper | `cd sdk/flutter && flutter test && flutter analyze` |
 
 CI runs all of them on every pull request (`.github/workflows/ci.yml`).

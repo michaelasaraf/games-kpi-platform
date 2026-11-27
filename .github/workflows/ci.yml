@@ -61,12 +61,13 @@ jobs:
         run: python scripts/test_meta_referrers.py
 
   unity:
-    name: Unity wrapper
+    name: Unity wrapper and Games SDK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: sudo apt-get update -q && sudo apt-get install -y -q mono-mcs mono-runtime
       - run: sdk/unity/Tests~/run.sh
+      - run: sh sdk/unity-sdk/Tests~/run.sh
 
   flutter:
     name: Flutter wrapper

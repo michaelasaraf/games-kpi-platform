@@ -26,6 +26,7 @@ namespace GamesSdk
         private IAdNetwork network;
         private bool started;
         private bool initialized;
+        private bool initializing;
         private int rewardedFailures;
         private int interstitialFailures;
         private bool rewardedRetryPending;
@@ -119,8 +120,28 @@ namespace GamesSdk
                 return;
             }
 
+            InitializeNetwork();
+        }
+
+        /// <summary>
+        /// Tries the ad network again after it could not start (consent not answered yet, no network at launch).
+        /// Does nothing while it is starting or once it runs.
+        /// </summary>
+        public void RetryInitialize()
+        {
+            if (!started || initialized || initializing || network == null || !config.adsEnabled) return;
+
+            InitializeNetwork();
+        }
+
+        public bool IsInitializing => initializing;
+
+        private void InitializeNetwork()
+        {
+            initializing = true;
             network.Initialize(config, ok =>
             {
+                initializing = false;
                 initialized = ok;
                 SdkLog.Info(ok ? $"Ads ready ({network.Name}). {network.AdapterStatus}" : $"Ads could not start ({network.Name}).");
                 if (ok)
@@ -375,6 +396,7 @@ namespace GamesSdk
         {
             started = false;
             initialized = false;
+            initializing = false;
             IsShowing = false;
             network = null;
             rewardedFailures = interstitialFailures = 0;

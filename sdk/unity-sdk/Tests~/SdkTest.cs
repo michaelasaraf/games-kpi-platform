@@ -327,8 +327,12 @@ public static class SdkTest
         c.androidRewardedId = "ca-app-pub-1111/2222";
         GameSdk.Init(c);
         Check(GameSdk.Ads.NetworkName == "AdMob" && !GameSdk.Ads.IsInitialized, "real ads wait for consent");
-        Debug.isDebugBuild = true;
         GoogleMobileAds.Ump.Api.ConsentInformation.CanRequest = true;
+        var heard = false;
+        GameSdk.Ads.Initialized += ok => heard = ok;
+        GameSdk.Ads.RetryInitialize();
+        Check(heard && GameSdk.Ads.IsInitialized, "RetryInitialize starts the ads once consent is there");
+        Debug.isDebugBuild = true;
     }
 
     static void Manifest()

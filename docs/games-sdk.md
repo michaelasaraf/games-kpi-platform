@@ -214,6 +214,32 @@ play_reports`, `ad_revenue_source: admob_api` (daily totals from the AdMob repor
 ad revenue per player, cohort and Meta campaign from the SDK's `ad_impression`, set `player_ad_revenue_source:
 wrapper`; that setting comes with PR #19, which is still open.
 
+### 4.7 Lost Treasure: what changes (read from the project on 2026-11-27)
+
+Lost Treasure started on 2026-11-24 as a full copy of Gem Mine, so it already has exactly the SDK's package set
+(Google Mobile Ads 11.6.0, the Unity Ads 3.22.0 and Meta 3.20.1 adapters, Firebase 14.1.0 including Crashlytics, the
+EDM placeholder from section 5) and the same ads and Firebase classes the SDK was built from. Its own Firebase project
+is `lost-treasures-397fb` with `Assets/google-services.json` for `com.tycoonstylegames.losttreasure`; AdMob still runs
+on Google's test ids. Install Dependencies adds nothing there except the KPI wrapper. The integration is replacing
+the inherited classes with the SDK, in this order:
+
+1. **Wrapper:** move the embedded `Packages/com.gameskpi.analytics` (version 0.1.0) out of the project and add the two
+   git lines from 4.2. An embedded package wins over the manifest, so leaving it would keep 0.1.0 (no Meta referrer).
+2. **Firebase start:** delete the game's `FirebaseStartup` and call `GamesSdk.FirebaseSupport.FirebaseStartup.WhenReady`
+   from `FirebaseLiveConfigBackend` (Remote Config). Its App Check line moves to `FirebaseStartup.BeforeDefaultApp`, or
+   goes, since nothing calls Auth or Functions any more. Two startups would run Google's dependency check twice.
+3. **Analytics:** `FirebaseAnalyticsBackend.Send` and `SetUserProperty` forward to `GameSdk.Analytics.Log` /
+   `SetUserProperty` (the SDK cleans names, adds the KPI envelope and the Crashlytics breadcrumbs, which that class did
+   itself). Call `GameSdk.Init()` from `GameBootstrap`.
+4. **Ads:** delete `AdMobAdBackend` (two of them would start AdMob twice) and add a small `SdkAdBackend : IAdBackend`
+   that forwards to `GameSdk.Ads`. `IAdBackend.ShowRewarded` / `ShowInterstitial` get a placement argument, which
+   `AdService` passes on from `MonetizationService` (it already knows it: `adPlacement`). `InterstitialGate` and
+   `MonetizationDirector` stay (they decide the moments); set the SDK's pacing to 0 or let both apply.
+5. **No double ad events:** remove `AnalyticsService.OnAdRevenuePaid` (its `ad_impression`), since the SDK sends it.
+   Keep the `AdRevenuePaid` bus event for `AttributionService` (Meta), fed from `GameSdk.Ads.Paid`.
+
+About a day of work in the game, plus a dev build to check the log lines in 4.4.
+
 ## 5. Projects that already use Unity's EDM
 
 Firebase and AdMob from OpenUPM depend on Google's External Dependency Manager (`com.google.external-dependency-manager`).
